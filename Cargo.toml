@@ -1,0 +1,20 @@
+[package]
+name = "cargo-patch"
+version = "0.1.0"
+authors = ["Marc Mettke <marc@itmettke.de>"]
+edition = "2018"
+description = "Cargo Subcommand for patching dependencies using patch files"
+license-file = "LICENSE"
+repository = "https://github.com/mettke/cargo-patch"
+readme = "README.md"
+keywords = ["cargo", "patch", "dependency", "dependencies", "patchfile"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+anyhow = "1.0"
+cargo = "0.44"
+cargo_toml = "0.8"
+failure = "0.1"
+fs_extra = "1.1"
+patch = "0.5"
+serde = { version = "1.0", features = ["derive"] }
