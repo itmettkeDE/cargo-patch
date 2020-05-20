@@ -1,56 +1,62 @@
-//! `Cargo-Patch` is a Cargo Subcommand which allows 
-//! patching dependencies using patch files. 
-//! 
+//! `Cargo-Patch` is a Cargo Subcommand which allows
+//! patching dependencies using patch files.
+//!
 //! # Installation
-//! 
+//!
 //! Simply run:
-//! 
+//!
 //! ```sh
 //! cargo install cargo-patch
 //! ```
-//! 
-//! # Usage 
-//! 
+//!
+//! # Usage
+//!
 //! To patch a dependecy one has to add the following
 //! to `Cargo.toml`:
-//! 
+//!
 //! ```toml
 //! [package.metadata.patch.serde]
 //! patches = [
 //!     "test.patch"
 //! ]
 //! ```
-//! 
-//! It specifies which dependency to patch (in this case 
+//!
+//! It specifies which dependency to patch (in this case
 //! serde) and one or more patchfiles to apply. Running:
-//! 
+//!
 //! ```sh
 //! cargo patch
 //! ```
-//! 
+//!
 //! will download the serde package specified in the
 //! dependency section to the `target/patch` folder
-//! and apply the given patches. To use the patched 
-//! version one has to override the dependency using 
+//! and apply the given patches. To use the patched
+//! version one has to override the dependency using
 //! `replace` like this
-//! 
+//!
 //! ```toml
 //! [patch.crates-io]
 //! serde = { path = './target/patch/serde-1.0.110' }
 //! ```
-//! 
+//!
 //! # Patch format
-//! 
+//!
 //! You can either use [diff](http://man7.org/linux/man-pages/man1/diff.1.html) or
 //! [git](https://linux.die.net/man/1/git) to create patch files. Important is that
 //! file paths are relativ and inside the dependency
-//! 
+//!
 //! # Features
+//!
 //! - [x] Patch dependencies from crates.io
 //! - [ ] Patch dependencies from git url
 //! - [ ] Handle Workspaces
 //! - [x] Use error messages which noone understands
-//! 
+//!
+//! # Limitations
+//!
+//! Its only possible to patch dependencies of binary crates as it is not possible
+//! for a subcommand to intercept the build process.
+//!
 
 #![warn(
     absolute_paths_not_starting_with_crate,
@@ -110,6 +116,7 @@ use cargo::{
     core::{
         dependency::Dependency as CDep,
         package::{Package, PackageSet},
+        shell::Verbosity,
         source::{Source, SourceMap},
         summary::Summary,
         SourceId,
@@ -125,29 +132,47 @@ use serde::Deserialize;
 use std::{
     collections::{HashMap, HashSet},
     fs,
+    io::ErrorKind,
     path::PathBuf,
 };
 
 #[derive(Debug, Clone, Deserialize)]
 struct PatchSection {
-    patch: HashMap<String, PatchEntry>,
+    patch: Option<HashMap<String, PatchEntry>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct PatchEntry {
-    patches: Vec<PathBuf>,
+    patches: Option<Vec<PathBuf>>,
 }
 
+#[allow(clippy::wildcard_enum_match_arm)]
 fn clear_patch_folder() -> Result<()> {
-    fs::remove_dir_all("target/patch").map_err(Into::into)
+    match fs::remove_dir_all("target/patch") {
+        Ok(_) => Ok(()),
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => Ok(()),
+            _ => Err(err.into()),
+        },
+    }
 }
 
 fn fetch_manifest() -> Result<Manifest<PatchSection>> {
-    Manifest::from_path_with_metadata("./Cargo.toml").map_err(Into::into)
+    Manifest::from_path_with_metadata("./Cargo.toml")
+        .map_err(|err| {
+            err_msg(format!(
+                "Cargo.toml not found or unable to parse. Error: {}",
+                err
+            ))
+            .compat()
+        })
+        .map_err(Into::into)
 }
 
 fn setup_config() -> Result<Config> {
-    Config::default()
+    let config = Config::default()?;
+    config.shell().set_verbosity(Verbosity::Quiet);
+    Ok(config)
 }
 
 fn get_source(config: &Config) -> Result<SourceId> {
@@ -161,12 +186,12 @@ fn get_patches(
         .package
         .as_ref()
         .and_then(|p| p.metadata.as_ref())
-        .map(|p| &p.patch)
+        .and_then(|p| p.patch.as_ref())
 }
 
 fn handle_patch(
     name: &str,
-    entry: &PatchEntry,
+    patches: &[PathBuf],
     deps: &[&DepsSet],
     source: SourceId,
     config: &Config,
@@ -187,7 +212,7 @@ fn handle_patch(
     let pkg_set = PackageSet::new(&[summary.package_id()], sources, config)?;
     let pkg = download_package(&summary, &pkg_set)?;
     let path = copy_package(pkg)?;
-    apply_patches(entry, &path)?;
+    apply_patches(name, patches, &path)?;
     Ok(())
 }
 
@@ -213,7 +238,9 @@ fn get_dependency(
 }
 
 fn setup_registry(source: SourceId, config: &Config) -> Result<RegistrySource<'_>> {
-    Ok(RegistrySource::remote(source, &HashSet::new(), config))
+    let mut registry = RegistrySource::remote(source, &HashSet::new(), config);
+    registry.update()?;
+    Ok(registry)
 }
 
 fn get_summary(
@@ -256,9 +283,9 @@ fn copy_package(pkg: &Package) -> Result<PathBuf> {
     }
 }
 
-fn apply_patches(entry: &PatchEntry, path: &PathBuf) -> Result<()> {
-    for patch in &entry.patches {
-        let data = fs::read_to_string(patch)?;
+fn apply_patches(name: &str, patches: &[PathBuf], path: &PathBuf) -> Result<()> {
+    for patch in patches {
+        let data = read_to_string(patch)?;
         let patches = Patch::from_multiple(&data)
             .map_err(|_| err_msg("Unable to parse patch file").compat())?;
         for patch in patches {
@@ -266,12 +293,11 @@ fn apply_patches(entry: &PatchEntry, path: &PathBuf) -> Result<()> {
             let file_path = file_path.join(patch.old.path.as_ref());
             let file_path = file_path.canonicalize()?;
             if file_path.starts_with(&path) {
-                let data = fs::read_to_string(&file_path)?;
+                let data = read_to_string(&file_path)?;
                 let data = apply_patch(patch, &data);
                 fs::write(file_path, data)?;
+                println!("Patched {}", name);
             } else {
-                println!("{:?}", path);
-                println!("{:?}", file_path);
                 return Err(err_msg("Patch file tried to escape dependency folder")
                     .compat()
                     .into());
@@ -306,13 +332,29 @@ fn apply_patch(diff: Patch, old: &str) -> String {
     out.join("\n")
 }
 
+#[allow(clippy::wildcard_enum_match_arm)]
+fn read_to_string(path: &PathBuf) -> Result<String> {
+    match fs::read_to_string(path) {
+        Ok(data) => Ok(data),
+        Err(err) => match err.kind() {
+            ErrorKind::NotFound => Err(err_msg(format!(
+                "Unable to find patch file with path: {:?}",
+                path
+            ))
+            .compat()
+            .into()),
+            _ => Err(err.into()),
+        },
+    }
+}
+
 fn main() -> Result<()> {
     clear_patch_folder()?;
     let manifest = fetch_manifest()?;
     let config = setup_config()?;
     let source_id = get_source(&config)?;
     let _lock = config.acquire_package_cache_lock()?;
-    let patches = match get_patches(&manifest) {
+    let patches = match get_patches(&manifest).filter(|p| !p.is_empty()) {
         None => {
             println!("No patches found");
             return Ok(());
@@ -325,7 +367,11 @@ fn main() -> Result<()> {
         &manifest.build_dependencies,
     ];
     for (name, entry) in patches {
-        handle_patch(name, entry, &deps, source_id, &config)?;
+        if let Some(ref patches) = entry.patches {
+            handle_patch(name, patches, &deps, source_id, &config)?;
+        } else {
+            println!("No patches found for {}", name);
+        }
     }
     Ok(())
 }
