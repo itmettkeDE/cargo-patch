@@ -3,7 +3,7 @@ use cargo_test_support::{cargo_dir, main_file, project};
 use std::env;
 
 #[cargo_test]
-fn patch_no_config() {
+fn patch_empty_no_config() {
     let p = project().build();
 
     let patch_bin =
@@ -15,7 +15,7 @@ fn patch_no_config() {
 }
 
 #[cargo_test]
-fn patch_no_src() {
+fn patch_empty_no_src() {
     let manifest = r#"
         [package]
         name = "example"
@@ -33,7 +33,7 @@ fn patch_no_src() {
 }
 
 #[cargo_test]
-fn patch_simple() {
+fn patch_empty_simple() {
     let manifest = r#"
         [package]
         name = "example"
@@ -53,7 +53,7 @@ fn patch_simple() {
 }
 
 #[cargo_test]
-fn patch_missing_dependency() {
+fn patch_empty_missing_dependency() {
     let manifest = r#"
         [package]
         name = "example"
@@ -76,7 +76,7 @@ fn patch_missing_dependency() {
 }
 
 #[cargo_test]
-fn patch_missing_patches() {
+fn patch_empty_missing_patches() {
     let manifest = r#"
         [package]
         name = "example"
@@ -98,7 +98,7 @@ fn patch_missing_patches() {
 }
 
 #[cargo_test]
-fn patch_missing_dependency_name() {
+fn patch_empty_missing_dependency_name() {
     let manifest = r#"
         [package]
         name = "example"
@@ -120,7 +120,7 @@ fn patch_missing_dependency_name() {
 }
 
 #[cargo_test]
-fn patch_missing_patch_section() {
+fn patch_empty_missing_patch_section() {
     let manifest = r#"
         [package]
         name = "example"

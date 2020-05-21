@@ -3,7 +3,7 @@ use cargo_test_support::{cargo_dir, main_file, project};
 use std::env;
 
 #[cargo_test]
-fn patch_crates_io_invalid_dependency() {
+fn patch_git_invalid_dependency() {
     let manifest = r#"
         [package]
         name = "example"
@@ -11,7 +11,7 @@ fn patch_crates_io_invalid_dependency() {
         authors = ["wycats@example.com"]
 
         [dependencies]
-        asdf = "1.0"
+        asdf = { git = "https://github.com/mettke/asdf.git" }
 
         [package.metadata.patch.asdf]
         patches = [
@@ -27,13 +27,14 @@ fn patch_crates_io_invalid_dependency() {
     let patch_bin =
         cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
     p.process(&patch_bin)
-        .with_stderr("Error: Unable to find package: asdf\n")
+        .with_stderr_contains("Error: failed to clone into: [..]")
+        .with_stderr_contains("[..]asdf[..]")
         .with_status(1)
         .run();
 }
 
 #[cargo_test]
-fn patch_crates_io_missing_patch() {
+fn patch_git_missing_patch() {
     let manifest = r#"
         [package]
         name = "example"
@@ -41,7 +42,7 @@ fn patch_crates_io_missing_patch() {
         authors = ["wycats@example.com"]
 
         [dependencies]
-        serde = "=1.0.110"
+        serde = { git = "https://github.com/serde-rs/serde.git", tag = "v1.0.110" }
 
         [package.metadata.patch.serde]
         patches = [
@@ -62,7 +63,7 @@ fn patch_crates_io_missing_patch() {
 }
 
 #[cargo_test]
-fn patch_crates_io_invalid_patch() {
+fn patch_git_invalid_patch() {
     let manifest = r#"
         [package]
         name = "example"
@@ -70,7 +71,7 @@ fn patch_crates_io_invalid_patch() {
         authors = ["wycats@example.com"]
 
         [dependencies]
-        serde = "=1.0.110"
+        serde = { git = "https://github.com/serde-rs/serde.git", tag = "v1.0.110" }
 
         [package.metadata.patch.serde]
         patches = [
@@ -92,7 +93,7 @@ fn patch_crates_io_invalid_patch() {
 }
 
 #[cargo_test]
-fn patch_crates_io_simple() {
+fn patch_git_detailed() {
     let manifest = r#"
         [package]
         name = "example"
@@ -100,7 +101,7 @@ fn patch_crates_io_simple() {
         authors = ["wycats@example.com"]
 
         [dependencies]
-        serde = "=1.0.110"
+        serde = { git = "https://github.com/serde-rs/serde.git", tag = "v1.0.110" }
 
         [package.metadata.patch.serde]
         patches = [
@@ -134,57 +135,7 @@ fn patch_crates_io_simple() {
     let license_mit = p
         .build_dir()
         .join("patch")
-        .join("serde-1.0.110")
-        .join("LICENSE-MIT");
-    let licenes =
-        std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
-}
-
-#[cargo_test]
-fn patch_crates_io_detailed() {
-    let manifest = r#"
-        [package]
-        name = "example"
-        version = "0.1.0"
-        authors = ["wycats@example.com"]
-
-        [dependencies]
-        serde = { version = "=1.0.110", features = ["derive"] }
-
-        [package.metadata.patch.serde]
-        patches = [
-            "test.patch"
-        ]
-    "#;
-    let patch = r#"--- LICENSE-MIT	2020-05-20 18:44:09.709027472 +0200
-+++ LICENSE-MIT	2020-05-20 18:58:46.253762666 +0200
-@@ -8,9 +8,7 @@
- is furnished to do so, subject to the following
- conditions:
- 
--The above copyright notice and this permission notice
--shall be included in all copies or substantial portions
--of the Software.
-+PATCHED
- 
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
- ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-"#;
-    let p = project()
-        .file("Cargo.toml", &manifest)
-        .file("src/foo.rs", &main_file(r#""i am foo""#, &[]))
-        .file("test.patch", &patch)
-        .build();
-
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin).with_stdout("Patched serde\n").run();
-
-    let license_mit = p
-        .build_dir()
-        .join("patch")
-        .join("serde-1.0.110")
+        .join("serde")
         .join("LICENSE-MIT");
     let licenes =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");

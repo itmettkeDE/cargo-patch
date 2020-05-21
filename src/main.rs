@@ -119,9 +119,9 @@ use cargo::{
         shell::Verbosity,
         source::{Source, SourceMap},
         summary::Summary,
-        SourceId,
+        GitReference, SourceId,
     },
-    sources::registry::RegistrySource,
+    sources::{registry::RegistrySource, GitSource},
     util::config::Config,
 };
 use cargo_toml::{Dependency, DepsSet, Manifest};
@@ -144,6 +144,19 @@ struct PatchSection {
 #[derive(Debug, Clone, Deserialize)]
 struct PatchEntry {
     patches: Option<Vec<PathBuf>>,
+}
+
+enum DepType<'a> {
+    CratesIO {
+        name: &'a str,
+        version: Option<&'a str>,
+    },
+    Git {
+        name: &'a str,
+        version: Option<&'a str>,
+        url: &'a str,
+        gref: GitReference,
+    },
 }
 
 #[allow(clippy::wildcard_enum_match_arm)]
@@ -175,8 +188,13 @@ fn setup_config() -> Result<Config> {
     Ok(config)
 }
 
-fn get_source(config: &Config) -> Result<SourceId> {
+fn get_ci_source(config: &Config) -> Result<SourceId> {
     SourceId::crates_io(config)
+}
+
+fn get_git_source(url: &str, gref: GitReference) -> Result<SourceId> {
+    let url = url.parse()?;
+    SourceId::for_git(&url, gref)
 }
 
 fn get_patches(
@@ -193,7 +211,7 @@ fn handle_patch(
     name: &str,
     patches: &[PathBuf],
     deps: &[&DepsSet],
-    source: SourceId,
+    ci_source: SourceId,
     config: &Config,
 ) -> Result<()> {
     let dep = match deps.iter().find_map(|dep| dep.get(name)) {
@@ -203,12 +221,12 @@ fn handle_patch(
         }
         Some(dep) => dep,
     };
-    let (name, ver) = get_name_and_version(name, dep);
-    let dep = get_dependency(name, ver, source)?;
-    let mut registry = setup_registry(source, config)?;
+    let dep_type = get_name_and_version(name, dep);
+    let (dep, mut registry) =
+        get_dependency_and_registry(dep_type, ci_source, config)?;
     let summary = get_summary(name, &dep, &mut registry)?;
     let mut sources = SourceMap::new();
-    sources.insert(Box::new(registry));
+    sources.insert(registry);
     let pkg_set = PackageSet::new(&[summary.package_id()], sources, config)?;
     let pkg = download_package(&summary, &pkg_set)?;
     let path = copy_package(pkg)?;
@@ -216,37 +234,76 @@ fn handle_patch(
     Ok(())
 }
 
-fn get_name_and_version<'a>(
-    name: &'a str,
-    dep: &'a Dependency,
-) -> (&'a str, Option<&'a str>) {
+fn get_name_and_version<'a>(name: &'a str, dep: &'a Dependency) -> DepType<'a> {
     match dep {
-        Dependency::Simple(version) => (name, Some(version)),
-        Dependency::Detailed(detail) => (
-            detail.package.as_deref().unwrap_or(name),
-            detail.version.as_deref(),
-        ),
+        Dependency::Simple(version) => DepType::CratesIO {
+            name,
+            version: Some(version),
+        },
+        Dependency::Detailed(detail) => {
+            if let Some(ref git) = detail.git {
+                let gref = if let Some(ref branch) = detail.branch {
+                    GitReference::Branch(branch.into())
+                } else if let Some(ref tag) = detail.tag {
+                    GitReference::Tag(tag.into())
+                } else if let Some(ref rev) = detail.rev {
+                    GitReference::Rev(rev.into())
+                } else {
+                    GitReference::Branch("master".into())
+                };
+                DepType::Git {
+                    name,
+                    version: detail.version.as_deref(),
+                    url: git,
+                    gref,
+                }
+            } else {
+                DepType::CratesIO {
+                    name,
+                    version: detail.version.as_deref(),
+                }
+            }
+        }
     }
 }
 
-fn get_dependency(
-    name: &str,
-    version: Option<&str>,
-    source: SourceId,
-) -> Result<CDep> {
-    CDep::parse_no_deprecated(name, version, source)
-}
-
-fn setup_registry(source: SourceId, config: &Config) -> Result<RegistrySource<'_>> {
-    let mut registry = RegistrySource::remote(source, &HashSet::new(), config);
-    registry.update()?;
-    Ok(registry)
+fn get_dependency_and_registry<'a>(
+    dep_type: DepType<'_>,
+    ci_source: SourceId,
+    config: &'a Config,
+) -> Result<(CDep, Box<dyn Source + 'a>)> {
+    let (name, version, source, registry): (
+        &str,
+        Option<&str>,
+        SourceId,
+        Box<dyn Source>,
+    ) = match dep_type {
+        DepType::CratesIO { name, version } => {
+            let mut registry =
+                RegistrySource::remote(ci_source, &HashSet::new(), config);
+            registry.update()?;
+            (name, version, ci_source, Box::new(registry))
+        }
+        DepType::Git {
+            name,
+            version,
+            url,
+            gref,
+        } => {
+            let git_source_id = get_git_source(url, gref)?;
+            let mut registry = GitSource::new(git_source_id, config)?;
+            registry.update()?;
+            (name, version, git_source_id, Box::new(registry))
+        }
+    };
+    let dep = CDep::parse_no_deprecated(name, version, source)?;
+    Ok((dep, registry))
 }
 
 fn get_summary(
     name: &str,
     dep: &CDep,
-    registry: &mut RegistrySource<'_>,
+    registry: &mut dyn Source,
 ) -> Result<Summary> {
     let mut summaries = vec![];
     registry.query(dep, &mut |summary| summaries.push(summary))?;
@@ -265,7 +322,7 @@ fn download_package<'a>(
     summary: &Summary,
     pkg_set: &'a PackageSet<'_>,
 ) -> Result<&'a Package> {
-    pkg_set.get_one(summary.package_id()).map_err(Into::into)
+    pkg_set.get_one(summary.package_id())
 }
 
 fn copy_package(pkg: &Package) -> Result<PathBuf> {
@@ -352,7 +409,7 @@ fn main() -> Result<()> {
     clear_patch_folder()?;
     let manifest = fetch_manifest()?;
     let config = setup_config()?;
-    let source_id = get_source(&config)?;
+    let ci_source = get_ci_source(&config)?;
     let _lock = config.acquire_package_cache_lock()?;
     let patches = match get_patches(&manifest).filter(|p| !p.is_empty()) {
         None => {
@@ -368,7 +425,7 @@ fn main() -> Result<()> {
     ];
     for (name, entry) in patches {
         if let Some(ref patches) = entry.patches {
-            handle_patch(name, patches, &deps, source_id, &config)?;
+            handle_patch(name, patches, &deps, ci_source, &config)?;
         } else {
             println!("No patches found for {}", name);
         }

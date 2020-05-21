@@ -230,7 +230,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-patch"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "cargo 0.44.1",
@@ -1248,9 +1248,9 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "syn"
-version = "1.0.22"
+version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1425de3c33b0941002740a420b1a906a350b88d08b82b2c8a01035a3f9447bac"
+checksum = "95b5f192649e48a5302a13f2feb224df883b98933222369e4b3b0fe2a5447269"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1271,9 +1271,9 @@ dependencies = [
 
 [[package]]
 name = "tar"
-version = "0.4.26"
+version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3196bfbffbba3e57481b6ea32249fbaf590396a52505a2615adbb79d9d826d3"
+checksum = "7160add8f178ecef9c22e9d8f8ed28bc9a39660e98b1c28d93cc026ad9619f09"
 dependencies = [
  "filetime",
  "libc",
