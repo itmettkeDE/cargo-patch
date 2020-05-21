@@ -108,7 +108,7 @@ fn patch_simple() {
         ]
     "#;
     let patch = r#"--- LICENSE-MIT	2020-05-20 18:44:09.709027472 +0200
-+++ "LICENSE-MIT copy"	2020-05-20 18:58:46.253762666 +0200
++++ LICENSE-MIT	2020-05-20 18:58:46.253762666 +0200
 @@ -8,9 +8,7 @@
  is furnished to do so, subject to the following
  conditions:
@@ -158,7 +158,7 @@ fn patch_detailed() {
         ]
     "#;
     let patch = r#"--- LICENSE-MIT	2020-05-20 18:44:09.709027472 +0200
-+++ "LICENSE-MIT copy"	2020-05-20 18:58:46.253762666 +0200
++++ LICENSE-MIT	2020-05-20 18:58:46.253762666 +0200
 @@ -8,9 +8,7 @@
  is furnished to do so, subject to the following
  conditions:

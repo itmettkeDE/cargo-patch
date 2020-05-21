@@ -375,3 +375,39 @@ fn main() -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::apply_patch;
+    use patch::Patch;
+
+    #[test]
+    fn apply_patch_simply() {
+        let patch = r#"--- test	2020-05-21 08:50:06.629765310 +0200
++++ test	2020-05-21 08:50:19.689878523 +0200
+@@ -1,6 +1,6 @@
+ This is the first line
+ 
+-This is the second line
++This is the patched line
+ 
+ This is the third line
+ 
+"#;
+        let content = r#"This is the first line
+
+This is the second line
+
+This is the third line
+"#;
+        let patched = r#"This is the first line
+
+This is the patched line
+
+This is the third line
+"#;
+        let patch = Patch::from_single(patch).expect("Unable to parse patch");
+        let test_patched = apply_patch(patch, content);
+        assert_eq!(patched, test_patched, "Patched content does not match");
+    }
+}
