@@ -13,11 +13,12 @@ cargo install cargo-patch
 
 ## Usage
 
-To patch a dependecy one has to add the following
+To patch a dependency one has to add the following
 to `Cargo.toml`:
 
 ```toml
 [package.metadata.patch.serde]
+version = "1.0"
 patches = [
     "test.patch"
 ]

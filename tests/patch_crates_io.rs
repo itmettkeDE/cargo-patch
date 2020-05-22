@@ -27,7 +27,9 @@ fn patch_crates_io_invalid_dependency() {
     let patch_bin =
         cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
     p.process(&patch_bin)
-        .with_stderr_contains("Error: failed to select a version for the requirement [..]")
+        .with_stderr_contains(
+            "Error: failed to select a version for the requirement [..]",
+        )
         .with_stderr_contains("[..]asdf[..]")
         .with_status(1)
         .run();

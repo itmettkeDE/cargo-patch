@@ -11,11 +11,12 @@
 //!
 //! # Usage
 //!
-//! To patch a dependecy one has to add the following
+//! To patch a dependency one has to add the following
 //! to `Cargo.toml`:
 //!
 //! ```toml
 //! [package.metadata.patch.serde]
+//! version = "1.0"
 //! patches = [
 //!     "test.patch"
 //! ]
@@ -113,7 +114,7 @@ use cargo::{
 use failure::err_msg;
 use fs_extra::dir::{copy, CopyOptions};
 use patch::{Line, Patch};
-use semver::Version;
+use semver::VersionReq;
 use std::{
     fs,
     io::ErrorKind,
@@ -124,7 +125,7 @@ use toml::value::Value;
 #[derive(Debug, Clone)]
 struct PatchEntry {
     name: String,
-    version: Option<Version>,
+    version: Option<VersionReq>,
     patches: Vec<PathBuf>,
 }
 
@@ -179,7 +180,7 @@ fn parse_patch_entry(name: &str, entry: &Value) -> Option<PatchEntry> {
         Some(e) => e,
     };
     let version = entry.get("version").and_then(|e| {
-        let value = e.as_str().and_then(|s| Version::parse(s).ok());
+        let value = e.as_str().and_then(|s| VersionReq::parse(s).ok());
 
         if value.is_none() {
             eprintln!("Version must be a value semver string: {}", e);
@@ -218,8 +219,7 @@ fn get_ids(
         let mut matched_dep = None;
         for dep in resolve.iter() {
             if dep.name().as_str() == patch_entry.name
-                && (patch_entry.version.is_none()
-                    || patch_entry.version.as_ref() == Some(dep.version()))
+                && patch_entry.version.as_ref().map_or(true, |ver| ver.matches(dep.version()))
             {
                 if matched_dep.is_none() {
                     matched_dep = Some(dep);
