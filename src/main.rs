@@ -296,6 +296,12 @@ fn apply_patch(diff: Patch, old: &str) -> String {
             }
         }
     }
+    for line in &old_lines[(old_line as usize)..] {
+        out.push(line);
+    }
+    if old.ends_with('\n') {
+        out.push("");
+    }
     out.join("\n")
 }
 
@@ -372,6 +378,51 @@ This is the third line
 This is the patched line
 
 This is the third line
+"#;
+        let patch = Patch::from_single(patch).expect("Unable to parse patch");
+        let test_patched = apply_patch(patch, content);
+        assert_eq!(patched, test_patched, "Patched content does not match");
+    }
+
+    #[test]
+    fn apply_patch_toml() {
+        let patch = r#"--- test1	2020-05-22 17:30:38.119170176 +0200
++++ test2	2020-05-22 17:30:48.905935473 +0200
+@@ -2,8 +2,7 @@
+ adipiscing elit, sed do eiusmod tempor 
+ incididunt ut labore et dolore magna 
+ aliqua. Ut enim ad minim veniam, quis 
+-nostrud exercitation ullamco laboris 
+-nisi ut aliquip ex ea commodo consequat. 
++PATCHED
+ Duis aute irure dolor in reprehenderit 
+ in voluptate velit esse cillum dolore 
+ eu fugiat nulla pariatur. Excepteur sint 
+"#;
+        let content = r#"Lorem ipsum dolor sit amet, consectetur 
+adipiscing elit, sed do eiusmod tempor 
+incididunt ut labore et dolore magna 
+aliqua. Ut enim ad minim veniam, quis 
+nostrud exercitation ullamco laboris 
+nisi ut aliquip ex ea commodo consequat. 
+Duis aute irure dolor in reprehenderit 
+in voluptate velit esse cillum dolore 
+eu fugiat nulla pariatur. Excepteur sint 
+occaecat cupidatat non proident, sunt in 
+culpa qui officia deserunt mollit anim 
+id est laborum.
+"#;
+        let patched = r#"Lorem ipsum dolor sit amet, consectetur 
+adipiscing elit, sed do eiusmod tempor 
+incididunt ut labore et dolore magna 
+aliqua. Ut enim ad minim veniam, quis 
+PATCHED
+Duis aute irure dolor in reprehenderit 
+in voluptate velit esse cillum dolore 
+eu fugiat nulla pariatur. Excepteur sint 
+occaecat cupidatat non proident, sunt in 
+culpa qui officia deserunt mollit anim 
+id est laborum.
 "#;
         let patch = Patch::from_single(patch).expect("Unable to parse patch");
         let test_patched = apply_patch(patch, content);
