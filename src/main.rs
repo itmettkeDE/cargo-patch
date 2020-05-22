@@ -107,8 +107,8 @@
 
 use anyhow::Result;
 use cargo::{
-    core::{package::Package, shell::Verbosity, PackageId, Resolve, Workspace},
-    ops::resolve_ws,
+    core::{resolver::ResolveOpts, package::{Package, PackageSet}, shell::Verbosity, registry::PackageRegistry, PackageId, Resolve, Workspace},
+    ops::{get_resolved_packages, load_pkg_lockfile, resolve_with_previous},
     util::{config::Config, important_paths::find_root_manifest_for_wd},
 };
 use failure::err_msg;
@@ -153,6 +153,26 @@ fn find_cargo_toml(path: &Path) -> Result<PathBuf> {
 
 fn fetch_workspace<'a>(config: &'a Config, path: &Path) -> Result<Workspace<'a>> {
     Workspace::new(path, config)
+}
+
+fn resolve_ws<'a>(ws: &Workspace<'a>) -> Result<(PackageSet<'a>, Resolve)> {
+    let mut registry = PackageRegistry::new(ws.config())?;
+    registry.lock_patches();
+    let resolve = {
+        let prev = load_pkg_lockfile(ws)?;
+        let resolve: Resolve = resolve_with_previous(
+            &mut registry,
+            ws,
+            &ResolveOpts::everything(),
+            prev.as_ref(),
+            None,
+            &[],
+            false,
+        )?;
+        resolve
+    };
+    let packages = get_resolved_packages(&resolve, registry)?;
+    Ok((packages, resolve))
 }
 
 fn get_patches(package: &Package) -> Vec<PatchEntry> {
@@ -385,7 +405,7 @@ This is the third line
     }
 
     #[test]
-    fn apply_patch_toml() {
+    fn apply_patch_middle() {
         let patch = r#"--- test1	2020-05-22 17:30:38.119170176 +0200
 +++ test2	2020-05-22 17:30:48.905935473 +0200
 @@ -2,8 +2,7 @@
