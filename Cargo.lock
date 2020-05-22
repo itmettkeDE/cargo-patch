@@ -236,11 +236,11 @@ dependencies = [
  "cargo 0.44.1",
  "cargo-test-macro",
  "cargo-test-support",
- "cargo_toml",
  "failure",
  "fs_extra",
  "patch",
- "serde",
+ "semver",
+ "toml",
 ]
 
 [[package]]
@@ -281,17 +281,6 @@ dependencies = [
  "serde_json",
  "tar",
  "url",
-]
-
-[[package]]
-name = "cargo_toml"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7877b00aaf997d7ed66a81281d3a8b9f9da5361df05b72785b985349979a0f3"
-dependencies = [
- "serde",
- "serde_derive",
- "toml",
 ]
 
 [[package]]
@@ -987,9 +976,9 @@ checksum = "237a5ed80e274dbc66f86bd59c1e25edc039660be53194b5fe0a482e0f2612ea"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.13"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53f5ffe53a6b28e37c9c1ce74893477864d64f74778a93a4beb43c8fa167f639"
+checksum = "de40dd4ff82d9c9bab6dae29dbab1167e515f8df9ed17d2987cb6012db206933"
 dependencies = [
  "unicode-xid",
 ]

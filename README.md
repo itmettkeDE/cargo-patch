@@ -47,13 +47,6 @@ You can either use [diff](http://man7.org/linux/man-pages/man1/diff.1.html) or
 [git](https://linux.die.net/man/1/git) to create patch files. Important is that
 file paths are relativ and inside the dependency
 
-## Features
-
-- [x] Patch dependencies from crates.io
-- [ ] Patch dependencies from git url
-- [ ] Handle Workspaces
-- [x] Use error messages which noone understands
-
 ## Limitations
 
 Its only possible to patch dependencies of binary crates as it is not possible

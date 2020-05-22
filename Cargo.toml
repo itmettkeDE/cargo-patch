@@ -13,11 +13,11 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0"
 cargo = "0.44"
-cargo_toml = "0.8"
 failure = "0.1"
 fs_extra = "1.1"
 patch = "0.5"
-serde = { version = "1.0", features = ["derive"] }
+semver = "0.9"
+toml = "0.5"
 
 [dev-dependencies]
 cargo-test-macro = { git = "https://github.com/rust-lang/cargo.git", version = "0.1.0", tag = "0.44.1" }

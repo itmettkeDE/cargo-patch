@@ -45,13 +45,6 @@
 //! [git](https://linux.die.net/man/1/git) to create patch files. Important is that
 //! file paths are relativ and inside the dependency
 //!
-//! # Features
-//!
-//! - [x] Patch dependencies from crates.io
-//! - [ ] Patch dependencies from git url
-//! - [ ] Handle Workspaces
-//! - [x] Use error messages which noone understands
-//!
 //! # Limitations
 //!
 //! Its only possible to patch dependencies of binary crates as it is not possible
@@ -113,50 +106,26 @@
 
 use anyhow::Result;
 use cargo::{
-    core::{
-        dependency::Dependency as CDep,
-        package::{Package, PackageSet},
-        shell::Verbosity,
-        source::{Source, SourceMap},
-        summary::Summary,
-        GitReference, SourceId,
-    },
-    sources::{registry::RegistrySource, GitSource},
-    util::config::Config,
+    core::{package::Package, shell::Verbosity, PackageId, Resolve, Workspace},
+    ops::resolve_ws,
+    util::{config::Config, important_paths::find_root_manifest_for_wd},
 };
-use cargo_toml::{Dependency, DepsSet, Manifest};
 use failure::err_msg;
 use fs_extra::dir::{copy, CopyOptions};
 use patch::{Line, Patch};
-use serde::Deserialize;
+use semver::Version;
 use std::{
-    collections::{HashMap, HashSet},
     fs,
     io::ErrorKind,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
+use toml::value::Value;
 
-#[derive(Debug, Clone, Deserialize)]
-struct PatchSection {
-    patch: Option<HashMap<String, PatchEntry>>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone)]
 struct PatchEntry {
-    patches: Option<Vec<PathBuf>>,
-}
-
-enum DepType<'a> {
-    CratesIO {
-        name: &'a str,
-        version: Option<&'a str>,
-    },
-    Git {
-        name: &'a str,
-        version: Option<&'a str>,
-        url: &'a str,
-        gref: GitReference,
-    },
+    name: String,
+    version: Option<Version>,
+    patches: Vec<PathBuf>,
 }
 
 #[allow(clippy::wildcard_enum_match_arm)]
@@ -170,159 +139,100 @@ fn clear_patch_folder() -> Result<()> {
     }
 }
 
-fn fetch_manifest() -> Result<Manifest<PatchSection>> {
-    Manifest::from_path_with_metadata("./Cargo.toml")
-        .map_err(|err| {
-            err_msg(format!(
-                "Cargo.toml not found or unable to parse. Error: {}",
-                err
-            ))
-            .compat()
-        })
-        .map_err(Into::into)
-}
-
 fn setup_config() -> Result<Config> {
     let config = Config::default()?;
     config.shell().set_verbosity(Verbosity::Quiet);
     Ok(config)
 }
 
-fn get_ci_source(config: &Config) -> Result<SourceId> {
-    SourceId::crates_io(config)
+fn find_cargo_toml(path: &Path) -> Result<PathBuf> {
+    let path = fs::canonicalize(path)?;
+    find_root_manifest_for_wd(&path)
 }
 
-fn get_git_source(url: &str, gref: GitReference) -> Result<SourceId> {
-    let url = url.parse()?;
-    SourceId::for_git(&url, gref)
+fn fetch_workspace<'a>(config: &'a Config, path: &Path) -> Result<Workspace<'a>> {
+    Workspace::new(path, config)
 }
 
-fn get_patches(
-    manifest: &Manifest<PatchSection>,
-) -> Option<&HashMap<String, PatchEntry>> {
+fn get_patches(package: &Package) -> Vec<PatchEntry> {
+    let manifest = package.manifest();
     manifest
-        .package
-        .as_ref()
-        .and_then(|p| p.metadata.as_ref())
-        .and_then(|p| p.patch.as_ref())
+        .custom_metadata()
+        .and_then(|v| v.get("patch"))
+        .and_then(Value::as_table)
+        .map_or_else(
+            || vec![],
+            |v| {
+                v.iter()
+                    .filter_map(|(k, v)| parse_patch_entry(k, v))
+                    .collect()
+            },
+        )
 }
 
-fn handle_patch(
-    name: &str,
-    patches: &[PathBuf],
-    deps: &[&DepsSet],
-    ci_source: SourceId,
-    config: &Config,
-) -> Result<()> {
-    let dep = match deps.iter().find_map(|dep| dep.get(name)) {
+fn parse_patch_entry(name: &str, entry: &Value) -> Option<PatchEntry> {
+    let entry = match entry.as_table() {
         None => {
-            eprintln!("Unable to find package {} in dependencies", name);
-            return Ok(());
+            eprintln!("Entry {} must contain a table.", name);
+            return None;
         }
-        Some(dep) => dep,
+        Some(e) => e,
     };
-    let dep_type = get_name_and_version(name, dep);
-    let (dep, mut registry) =
-        get_dependency_and_registry(dep_type, ci_source, config)?;
-    let summary = get_summary(name, &dep, &mut registry)?;
-    let mut sources = SourceMap::new();
-    sources.insert(registry);
-    let pkg_set = PackageSet::new(&[summary.package_id()], sources, config)?;
-    let pkg = download_package(&summary, &pkg_set)?;
-    let path = copy_package(pkg)?;
-    apply_patches(name, patches, &path)?;
-    Ok(())
+    let version = entry.get("version").and_then(|e| {
+        let value = e.as_str().and_then(|s| Version::parse(s).ok());
+
+        if value.is_none() {
+            eprintln!("Version must be a value semver string: {}", e);
+        }
+        value
+    });
+    let patches = entry
+        .get("patches")
+        .and_then(Value::as_array)
+        .map_or_else(|| vec![], |entries| parse_patches(entries));
+    Some(PatchEntry {
+        name: name.to_string(),
+        version,
+        patches,
+    })
 }
 
-fn get_name_and_version<'a>(name: &'a str, dep: &'a Dependency) -> DepType<'a> {
-    match dep {
-        Dependency::Simple(version) => DepType::CratesIO {
-            name,
-            version: Some(version),
-        },
-        Dependency::Detailed(detail) => {
-            if let Some(ref git) = detail.git {
-                let gref = if let Some(ref branch) = detail.branch {
-                    GitReference::Branch(branch.into())
-                } else if let Some(ref tag) = detail.tag {
-                    GitReference::Tag(tag.into())
-                } else if let Some(ref rev) = detail.rev {
-                    GitReference::Rev(rev.into())
+fn parse_patches(entries: &[Value]) -> Vec<PathBuf> {
+    entries
+        .iter()
+        .filter_map(|e| {
+            let value = e.as_str().map(PathBuf::from);
+            if value.is_none() {
+                eprintln!("Patch Entry must be a string: {}", e);
+            }
+            value
+        })
+        .collect()
+}
+
+fn get_ids(
+    patches: Vec<PatchEntry>,
+    resolve: &Resolve,
+) -> Vec<(PatchEntry, PackageId)> {
+    patches.into_iter().filter_map(|patch_entry| {
+        let mut matched_dep = None;
+        for dep in resolve.iter() {
+            if dep.name().as_str() == patch_entry.name
+                && (patch_entry.version.is_none()
+                    || patch_entry.version.as_ref() == Some(dep.version()))
+            {
+                if matched_dep.is_none() {
+                    matched_dep = Some(dep);
                 } else {
-                    GitReference::Branch("master".into())
-                };
-                DepType::Git {
-                    name,
-                    version: detail.version.as_deref(),
-                    url: git,
-                    gref,
-                }
-            } else {
-                DepType::CratesIO {
-                    name,
-                    version: detail.version.as_deref(),
+                    eprintln!("There are multiple versions of {} available. Try specifying a version.", patch_entry.name);
                 }
             }
         }
-    }
-}
-
-fn get_dependency_and_registry<'a>(
-    dep_type: DepType<'_>,
-    ci_source: SourceId,
-    config: &'a Config,
-) -> Result<(CDep, Box<dyn Source + 'a>)> {
-    let (name, version, source, registry): (
-        &str,
-        Option<&str>,
-        SourceId,
-        Box<dyn Source>,
-    ) = match dep_type {
-        DepType::CratesIO { name, version } => {
-            let mut registry =
-                RegistrySource::remote(ci_source, &HashSet::new(), config);
-            registry.update()?;
-            (name, version, ci_source, Box::new(registry))
+        if matched_dep.is_none() {
+            eprintln!("Unable to find package {} in dependencies", patch_entry.name);
         }
-        DepType::Git {
-            name,
-            version,
-            url,
-            gref,
-        } => {
-            let git_source_id = get_git_source(url, gref)?;
-            let mut registry = GitSource::new(git_source_id, config)?;
-            registry.update()?;
-            (name, version, git_source_id, Box::new(registry))
-        }
-    };
-    let dep = CDep::parse_no_deprecated(name, version, source)?;
-    Ok((dep, registry))
-}
-
-fn get_summary(
-    name: &str,
-    dep: &CDep,
-    registry: &mut dyn Source,
-) -> Result<Summary> {
-    let mut summaries = vec![];
-    registry.query(dep, &mut |summary| summaries.push(summary))?;
-    summaries
-        .iter()
-        .max_by_key(|s| s.version())
-        .cloned()
-        .ok_or_else(|| {
-            err_msg(format!("Unable to find package: {}", name))
-                .compat()
-                .into()
-        })
-}
-
-fn download_package<'a>(
-    summary: &Summary,
-    pkg_set: &'a PackageSet<'_>,
-) -> Result<&'a Package> {
-    pkg_set.get_one(summary.package_id())
+        matched_dep.map(|v| (patch_entry, v))
+    }).collect()
 }
 
 fn copy_package(pkg: &Package) -> Result<PathBuf> {
@@ -407,28 +317,28 @@ fn read_to_string(path: &PathBuf) -> Result<String> {
 
 fn main() -> Result<()> {
     clear_patch_folder()?;
-    let manifest = fetch_manifest()?;
     let config = setup_config()?;
-    let ci_source = get_ci_source(&config)?;
     let _lock = config.acquire_package_cache_lock()?;
-    let patches = match get_patches(&manifest).filter(|p| !p.is_empty()) {
-        None => {
-            println!("No patches found");
-            return Ok(());
+    let workspace_path = find_cargo_toml(&PathBuf::from("."))?;
+    let workspace = fetch_workspace(&config, &workspace_path)?;
+    let (pkg_set, resolve) = resolve_ws(&workspace)?;
+
+    let mut patched = false;
+    for member in workspace.members() {
+        let patches = get_patches(member);
+        let ids = get_ids(patches, &resolve);
+        let packages = ids
+            .into_iter()
+            .map(|(p, id)| pkg_set.get_one(id).map(|v| (p, v)))
+            .collect::<Result<Vec<(PatchEntry, &Package)>>>()?;
+        for (patch, package) in packages {
+            let path = copy_package(package)?;
+            patched = true;
+            apply_patches(&patch.name, &patch.patches, &path)?;
         }
-        Some(p) => p,
-    };
-    let deps: Vec<&DepsSet> = vec![
-        &manifest.dependencies,
-        &manifest.dev_dependencies,
-        &manifest.build_dependencies,
-    ];
-    for (name, entry) in patches {
-        if let Some(ref patches) = entry.patches {
-            handle_patch(name, patches, &deps, ci_source, &config)?;
-        } else {
-            println!("No patches found for {}", name);
-        }
+    }
+    if !patched {
+        println!("No patches found")
     }
     Ok(())
 }
