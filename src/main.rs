@@ -308,15 +308,22 @@ fn apply_patch(diff: Patch, old: &str) -> String {
             out.push(old_lines[old_line as usize]);
             old_line += 1;
         }
-        old_line += hunk.old_range.count;
         for line in hunk.lines {
             match line {
-                Line::Add(s) | Line::Context(s) => out.push(s),
-                Line::Remove(_) => {}
+                Line::Context(_) => {
+                    if (old_line as usize) < old_lines.len() {
+                        out.push(old_lines[old_line as usize]);
+                    }
+                    old_line += 1;
+                }
+                Line::Add(s) => out.push(s),
+                Line::Remove(_) => {
+                    old_line += 1;
+                }
             }
         }
     }
-    for line in &old_lines[(old_line as usize)..] {
+    for line in old_lines.get((old_line as usize)..).unwrap_or(&[]) {
         out.push(line);
     }
     if old.ends_with('\n') {
@@ -443,6 +450,29 @@ eu fugiat nulla pariatur. Excepteur sint
 occaecat cupidatat non proident, sunt in 
 culpa qui officia deserunt mollit anim 
 id est laborum.
+"#;
+        let patch = Patch::from_single(patch).expect("Unable to parse patch");
+        let test_patched = apply_patch(patch, content);
+        assert_eq!(patched, test_patched, "Patched content does not match");
+    }
+
+    #[test]
+    fn apply_patch_no_context_override() {
+        let patch = r#"--- test        2020-06-06 10:06:44.375560000 +0200
++++ test2       2020-06-06 10:06:49.245635957 +0200
+@@ -1,3 +1,3 @@
+ test5
+-test2
++test4
+ test3
+"#;
+        let content = r#"test1
+test2
+test3
+"#;
+        let patched = r#"test1
+test4
+test3
 "#;
         let patch = Patch::from_single(patch).expect("Unable to parse patch");
         let test_patched = apply_patch(patch, content);
