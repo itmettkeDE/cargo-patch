@@ -83,7 +83,6 @@
 )]
 #![warn(
     clippy::correctness,
-    clippy::restriction,
     clippy::style,
     clippy::pedantic,
     clippy::complexity,
@@ -94,20 +93,27 @@
 #![allow(
     clippy::implicit_return,
     clippy::missing_docs_in_private_items,
-    clippy::result_expect_used,
+    clippy::expect_used,
     clippy::shadow_reuse,
-    clippy::option_expect_used,
     clippy::similar_names,
     clippy::else_if_without_else,
     clippy::multiple_crate_versions,
     clippy::module_name_repetitions,
     clippy::print_stdout,
-    clippy::integer_arithmetic
+    clippy::integer_arithmetic,
+    clippy::print_stderr,
+    clippy::map_err_ignore
 )]
 
 use anyhow::Result;
 use cargo::{
-    core::{resolver::ResolveOpts, package::{Package, PackageSet}, shell::Verbosity, registry::PackageRegistry, PackageId, Resolve, Workspace},
+    core::{
+        package::{Package, PackageSet},
+        registry::PackageRegistry,
+        resolver::{features::CliFeatures, HasDevUnits},
+        shell::Verbosity,
+        PackageId, Resolve, Workspace,
+    },
     ops::{get_resolved_packages, load_pkg_lockfile, resolve_with_previous},
     util::{config::Config, important_paths::find_root_manifest_for_wd},
 };
@@ -163,7 +169,8 @@ fn resolve_ws<'a>(ws: &Workspace<'a>) -> Result<(PackageSet<'a>, Resolve)> {
         let resolve: Resolve = resolve_with_previous(
             &mut registry,
             ws,
-            &ResolveOpts::everything(),
+            &CliFeatures::new_all(true),
+            HasDevUnits::No,
             prev.as_ref(),
             None,
             &[],
@@ -181,14 +188,11 @@ fn get_patches(package: &Package) -> Vec<PatchEntry> {
         .custom_metadata()
         .and_then(|v| v.get("patch"))
         .and_then(Value::as_table)
-        .map_or_else(
-            || vec![],
-            |v| {
-                v.iter()
-                    .filter_map(|(k, v)| parse_patch_entry(k, v))
-                    .collect()
-            },
-        )
+        .map_or_else(Vec::new, |v| {
+            v.iter()
+                .filter_map(|(k, v)| parse_patch_entry(k, v))
+                .collect()
+        })
 }
 
 fn parse_patch_entry(name: &str, entry: &Value) -> Option<PatchEntry> {
@@ -210,9 +214,9 @@ fn parse_patch_entry(name: &str, entry: &Value) -> Option<PatchEntry> {
     let patches = entry
         .get("patches")
         .and_then(Value::as_array)
-        .map_or_else(|| vec![], |entries| parse_patches(entries));
+        .map_or_else(Vec::new, |entries| parse_patches(entries));
     Some(PatchEntry {
-        name: name.to_string(),
+        name: name.to_owned(),
         version,
         patches,
     })
@@ -270,13 +274,13 @@ fn copy_package(pkg: &Package) -> Result<PathBuf> {
     }
 }
 
-fn apply_patches(name: &str, patches: &[PathBuf], path: &PathBuf) -> Result<()> {
+fn apply_patches(name: &str, patches: &[PathBuf], path: &Path) -> Result<()> {
     for patch in patches {
         let data = read_to_string(patch)?;
         let patches = Patch::from_multiple(&data)
             .map_err(|_| err_msg("Unable to parse patch file").compat())?;
         for patch in patches {
-            let file_path = path.clone();
+            let file_path = path.to_owned();
             let file_path = file_path.join(patch.old.path.as_ref());
             let file_path = file_path.canonicalize()?;
             if file_path.starts_with(&path) {
@@ -333,7 +337,7 @@ fn apply_patch(diff: Patch, old: &str) -> String {
 }
 
 #[allow(clippy::wildcard_enum_match_arm)]
-fn read_to_string(path: &PathBuf) -> Result<String> {
+fn read_to_string(path: &Path) -> Result<String> {
     match fs::read_to_string(path) {
         Ok(data) => Ok(data),
         Err(err) => match err.kind() {
@@ -371,7 +375,7 @@ fn main() -> Result<()> {
         }
     }
     if !patched {
-        println!("No patches found")
+        println!("No patches found");
     }
     Ok(())
 }
