@@ -1,0 +1,9 @@
+{
+    "packageRules": [{
+        "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+        "groupName": "dependencies (non-major)"
+    }],
+    "extends": [
+        "config:base"
+    ]
+}
