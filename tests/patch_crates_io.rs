@@ -19,7 +19,7 @@ fn patch_crates_io_invalid_dependency() {
         ]
     "#;
     let p = project()
-        .file("Cargo.toml", &manifest)
+        .file("Cargo.toml", manifest)
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .file("test.patch", r#""#)
         .build();
@@ -52,7 +52,7 @@ fn patch_crates_io_missing_patch() {
         ]
     "#;
     let p = project()
-        .file("Cargo.toml", &manifest)
+        .file("Cargo.toml", manifest)
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
@@ -81,7 +81,7 @@ fn patch_crates_io_invalid_patch() {
         ]
     "#;
     let p = project()
-        .file("Cargo.toml", &manifest)
+        .file("Cargo.toml", manifest)
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .file("test.patch", r#""#)
         .build();
@@ -125,14 +125,17 @@ fn patch_crates_io_simple() {
  ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
 "#;
     let p = project()
-        .file("Cargo.toml", &manifest)
+        .file("Cargo.toml", manifest)
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
-        .file("test.patch", &patch)
+        .file("test.patch", patch)
         .build();
 
     let patch_bin =
         cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin).with_stdout("Patched serde\n").run();
+    p.process(&patch_bin)
+        .cwd(p.root())
+        .with_stdout("Patched serde\n")
+        .run();
 
     let license_mit = p
         .build_dir()
@@ -175,14 +178,17 @@ fn patch_crates_io_detailed() {
  ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
 "#;
     let p = project()
-        .file("Cargo.toml", &manifest)
+        .file("Cargo.toml", manifest)
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
-        .file("test.patch", &patch)
+        .file("test.patch", patch)
         .build();
 
     let patch_bin =
         cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin).with_stdout("Patched serde\n").run();
+    p.process(&patch_bin)
+        .cwd(p.root())
+        .with_stdout("Patched serde\n")
+        .run();
 
     let license_mit = p
         .build_dir()
@@ -234,10 +240,10 @@ fn patch_git_workspace_root() {
  ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
 "#;
     let p = project()
-        .file("Cargo.toml", &manifest)
+        .file("Cargo.toml", manifest)
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
-        .file("test.patch", &patch)
-        .file("test/Cargo.toml", &test_manifest)
+        .file("test.patch", patch)
+        .file("test/Cargo.toml", test_manifest)
         .file("test/src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
