@@ -119,9 +119,9 @@ checksum = "6c58ec36aac5066d5ca17df51b3e70279f5670a72102f5752cb7e7c856adfc70"
 
 [[package]]
 name = "cargo"
-version = "0.58.0"
+version = "0.59.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cab77eea837b09297f6ad70921e465d77b60eb10380505abc02bd6e66b653704"
+checksum = "d08705bf607eb738364863d8435e69f88dd5c131b7f9752777a7ce328085cf95"
 dependencies = [
  "anyhow",
  "atty",
@@ -178,7 +178,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-patch"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "cargo",
@@ -203,16 +203,16 @@ dependencies = [
 [[package]]
 name = "cargo-test-macro"
 version = "0.1.0"
-source = "git+https://github.com/rust-lang/cargo.git?tag=0.58#b2e52d7cab0a286ee9fcc0c17510b1e72fcb53eb"
+source = "git+https://github.com/rust-lang/cargo.git?tag=0.59.0#7f08ace4f1305de7f3b1b0e2f765911957226bd4"
 
 [[package]]
 name = "cargo-test-support"
 version = "0.1.0"
-source = "git+https://github.com/rust-lang/cargo.git?tag=0.58#b2e52d7cab0a286ee9fcc0c17510b1e72fcb53eb"
+source = "git+https://github.com/rust-lang/cargo.git?tag=0.59.0#7f08ace4f1305de7f3b1b0e2f765911957226bd4"
 dependencies = [
  "anyhow",
  "cargo-test-macro",
- "cargo-util 0.1.1 (git+https://github.com/rust-lang/cargo.git?tag=0.58)",
+ "cargo-util 0.1.1 (git+https://github.com/rust-lang/cargo.git?tag=0.59.0)",
  "filetime",
  "flate2",
  "git2",
@@ -252,7 +252,7 @@ dependencies = [
 [[package]]
 name = "cargo-util"
 version = "0.1.1"
-source = "git+https://github.com/rust-lang/cargo.git?tag=0.58#b2e52d7cab0a286ee9fcc0c17510b1e72fcb53eb"
+source = "git+https://github.com/rust-lang/cargo.git?tag=0.59.0#7f08ace4f1305de7f3b1b0e2f765911957226bd4"
 dependencies = [
  "anyhow",
  "core-foundation",
@@ -915,9 +915,9 @@ dependencies = [
 
 [[package]]
 name = "openssl-probe"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28988d872ab76095a6e6ac88d99b54fd267702734fd7ffe610ca27f533ddb95a"
+checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-sys"
@@ -934,9 +934,9 @@ dependencies = [
 
 [[package]]
 name = "os_info"
-version = "3.0.9"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b89dd55b8d8d97dabd0d1adc625d188378fcf87632825bfe9c956acc9a11a72a"
+checksum = "198e392be7e882f0c2836f425e430f81d9a0e99651e4646311347417cddbfd43"
 dependencies = [
  "log",
  "serde",
@@ -1129,9 +1129,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.74"
+version = "1.0.75"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee2bb9cd061c5865d345bb02ca49fcef1391741b672b54a0bf7b679badec3142"
+checksum = "c059c05b48c5c0067d4b4b2b4f0732dd65feb52daf7e0ea09cd87e7dadc1af79"
 dependencies = [
  "itoa",
  "ryu",
