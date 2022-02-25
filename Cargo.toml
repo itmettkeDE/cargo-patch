@@ -1,6 +1,6 @@
 [package]
 name = "cargo-patch"
-version = "0.1.10"
+version = "0.1.11"
 authors = ["Marc Mettke <marc@itmettke.de>"]
 edition = "2021"
 description = "Cargo Subcommand for patching dependencies using patch files"
@@ -12,7 +12,7 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0"
-cargo = "0.59"
+cargo = "0.60"
 failure = "0.1"
 fs_extra = "1.2"
 patch = "0.6"
