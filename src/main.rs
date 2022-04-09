@@ -76,7 +76,7 @@ use std::{
     io::ErrorKind,
     path::{Path, PathBuf},
 };
-use toml::value::Value;
+use toml_edit::easy::Value;
 
 #[derive(Debug, Clone)]
 struct PatchEntry {
