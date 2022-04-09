@@ -165,7 +165,7 @@ dependencies = [
  "tar",
  "tempfile",
  "termcolor",
- "toml_edit",
+ "toml_edit 0.13.4",
  "unicode-width",
  "unicode-xid",
  "url",
@@ -185,7 +185,7 @@ dependencies = [
  "fs_extra",
  "patch",
  "semver",
- "toml_edit",
+ "toml_edit 0.14.2",
 ]
 
 [[package]]
@@ -220,7 +220,7 @@ dependencies = [
  "serde_json",
  "tar",
  "termcolor",
- "toml_edit",
+ "toml_edit 0.13.4",
  "url",
 ]
 
@@ -1327,6 +1327,17 @@ dependencies = [
  "itertools",
  "kstring",
  "serde",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.14.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86e793cd7300306ebefde30a6282a9016899b7bad63799511253d95518a62bcd"
+dependencies = [
+ "combine",
+ "indexmap",
+ "itertools",
 ]
 
 [[package]]
