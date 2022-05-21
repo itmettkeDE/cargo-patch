@@ -1,6 +1,6 @@
 [package]
 name = "cargo-patch"
-version = "0.1.13"
+version = "0.1.14"
 authors = ["Marc Mettke <marc@itmettke.de>"]
 edition = "2021"
 description = "Cargo Subcommand for patching dependencies using patch files"
@@ -12,13 +12,14 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0"
-cargo = "0.61"
+cargo = "0.62"
 failure = "0.1"
 fs_extra = "1.2"
 patch = "0.6"
 semver = "1.0"
-toml_edit = "0.13"
+toml_edit = { version = "0.13" }
+# toml_edit = { version = "0.14", features = ["easy"] }
 
 [dev-dependencies]
-cargo-test-macro = { git = "https://github.com/rust-lang/cargo.git", version = "0.1.0", tag = "0.61.0" }
-cargo-test-support = { git = "https://github.com/rust-lang/cargo.git", version = "0.1.0", tag = "0.61.0" }
+cargo-test-macro = { git = "https://github.com/rust-lang/cargo.git", version = "0.1.0", tag = "0.62.0" }
+cargo-test-support = { git = "https://github.com/rust-lang/cargo.git", version = "0.1.0", tag = "0.62.0" }
