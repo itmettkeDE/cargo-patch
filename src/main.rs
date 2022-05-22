@@ -55,7 +55,7 @@
 #![deny(clippy::all, clippy::nursery)]
 #![deny(nonstandard_style, rust_2018_idioms)]
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use cargo::{
     core::{
         package::{Package, PackageSet},
@@ -67,7 +67,6 @@ use cargo::{
     ops::{get_resolved_packages, load_pkg_lockfile, resolve_with_previous},
     util::{config::Config, important_paths::find_root_manifest_for_wd},
 };
-use failure::err_msg;
 use fs_extra::dir::{copy, CopyOptions};
 use patch::{Line, Patch};
 use semver::VersionReq;
@@ -218,9 +217,7 @@ fn copy_package(pkg: &Package) -> Result<PathBuf> {
         let buf = buf.join(name).canonicalize()?;
         Ok(buf)
     } else {
-        Err(err_msg("Dependency Folder does not have a name")
-            .compat()
-            .into())
+        Err(anyhow!("Dependency Folder does not have a name"))
     }
 }
 
@@ -228,7 +225,7 @@ fn apply_patches(name: &str, patches: &[PathBuf], path: &Path) -> Result<()> {
     for patch in patches {
         let data = read_to_string(patch)?;
         let patches = Patch::from_multiple(&data)
-            .map_err(|_| err_msg("Unable to parse patch file").compat())?;
+            .map_err(|_| anyhow!("Unable to parse patch file"))?;
         for patch in patches {
             let file_path = path.to_owned();
             let file_path = file_path.join(patch.old.path.as_ref());
@@ -239,9 +236,7 @@ fn apply_patches(name: &str, patches: &[PathBuf], path: &Path) -> Result<()> {
                 fs::write(file_path, data)?;
                 println!("Patched {}", name);
             } else {
-                return Err(err_msg("Patch file tried to escape dependency folder")
-                    .compat()
-                    .into());
+                return Err(anyhow!("Patch file tried to escape dependency folder"));
             }
         }
     }
@@ -291,12 +286,9 @@ fn read_to_string(path: &Path) -> Result<String> {
     match fs::read_to_string(path) {
         Ok(data) => Ok(data),
         Err(err) => match err.kind() {
-            ErrorKind::NotFound => Err(err_msg(format!(
-                "Unable to find patch file with path: {:?}",
-                path
-            ))
-            .compat()
-            .into()),
+            ErrorKind::NotFound => {
+                Err(anyhow!("Unable to find patch file with path: {:?}", path))
+            }
             _ => Err(err.into()),
         },
     }
