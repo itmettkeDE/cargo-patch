@@ -13,7 +13,6 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0"
 cargo = "0.62"
-failure = "0.1"
 fs_extra = "1.2"
 patch = "0.6"
 semver = "1.0"
