@@ -52,4 +52,3 @@ file paths are relative and inside the dependency.
 
 It's only possible to patch dependencies of binary crates as it is not possible
 for a subcommand to intercept the build process.
-

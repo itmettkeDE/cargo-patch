@@ -12,12 +12,45 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose --locked
+      - uses: actions/checkout@v3
+
+      - name: Build
+        run: cargo build --verbose --locked
+
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Lint Code
+        run: cargo clippy --locked --tests -- -D warnings
+
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Run tests
-      run: cargo test --verbose
+      - uses: actions/checkout@v3
+
+      - name: Run tests
+        run: cargo test --verbose
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install cargo audit
+        run: cargo install cargo-audit
+
+      - name: Run audit
+        run: |
+          if ! cargo audit -D warnings; then
+            echo "::warning file=Cargo.toml,line=1,col=1,endColumn=1::Problems detected by cargo audit"
+          fi
