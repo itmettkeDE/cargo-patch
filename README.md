@@ -46,10 +46,10 @@ serde = { path = './target/patch/serde-1.0.110' }
 
 You can either use [diff](http://man7.org/linux/man-pages/man1/diff.1.html) or
 [git](https://linux.die.net/man/1/git) to create patch files. Important is that
-file paths are relativ and inside the dependency
+file paths are relative and inside the dependency.
 
 ## Limitations
 
-Its only possible to patch dependencies of binary crates as it is not possible
+It's only possible to patch dependencies of binary crates as it is not possible
 for a subcommand to intercept the build process.
 
