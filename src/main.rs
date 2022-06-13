@@ -78,10 +78,10 @@ use std::{
 use toml_edit::easy::Value;
 
 #[derive(Debug, Clone)]
-struct PatchEntry {
-    name: String,
+struct PatchEntry<'a> {
+    name: &'a str,
     version: Option<VersionReq>,
-    patches: Vec<PathBuf>,
+    patches: Vec<&'a Path>,
 }
 
 #[allow(clippy::wildcard_enum_match_arm)]
@@ -131,79 +131,79 @@ fn resolve_ws<'a>(ws: &Workspace<'a>) -> Result<(PackageSet<'a>, Resolve)> {
     Ok((packages, resolve))
 }
 
-fn get_patches(custom_metadata: Option<&Value>) -> Vec<PatchEntry> {
+fn get_patches(
+    custom_metadata: &Value,
+) -> impl Iterator<Item = PatchEntry<'_>> + '_ {
     custom_metadata
-        .and_then(|v| v.get("patch"))
-        .and_then(Value::as_table)
-        .map_or_else(Vec::new, |v| {
-            v.iter()
+        .get("patch")
+        .into_iter()
+        .flat_map(|patch| patch.as_table().into_iter())
+        .flat_map(|table| {
+            table
+                .into_iter()
                 .filter_map(|(k, v)| parse_patch_entry(k, v))
-                .collect()
         })
 }
 
-fn parse_patch_entry(name: &str, entry: &Value) -> Option<PatchEntry> {
-    let entry = match entry.as_table() {
-        None => {
-            eprintln!("Entry {} must contain a table.", name);
-            return None;
-        }
-        Some(e) => e,
-    };
-    let version = entry.get("version").and_then(|e| {
-        let value = e.as_str().and_then(|s| VersionReq::parse(s).ok());
+fn parse_patch_entry<'a>(name: &'a str, entry: &'a Value) -> Option<PatchEntry<'a>> {
+    let entry = entry.as_table().or_else(|| {
+        eprintln!("Entry {} must contain a table.", name);
+        None
+    })?;
 
+    let version = entry.get("version").and_then(|version| {
+        let value = version.as_str().and_then(|s| VersionReq::parse(s).ok());
         if value.is_none() {
-            eprintln!("Version must be a value semver string: {}", e);
+            eprintln!("Version must be a value semver string: {}", version);
         }
         value
     });
+
     let patches = entry
         .get("patches")
         .and_then(Value::as_array)
-        .map_or_else(Vec::new, |entries| parse_patches(entries));
+        .into_iter()
+        .flat_map(|patches| {
+            patches.iter().flat_map(|patch| {
+                let value = patch.as_str().map(Path::new);
+                if value.is_none() {
+                    eprintln!("Patch Entry must be a string: {}", patch);
+                }
+                value
+            })
+        })
+        .collect();
+
     Some(PatchEntry {
-        name: name.to_owned(),
+        name,
         version,
         patches,
     })
 }
 
-fn parse_patches(entries: &[Value]) -> Vec<PathBuf> {
-    entries
-        .iter()
-        .filter_map(|e| {
-            let value = e.as_str().map(PathBuf::from);
-            if value.is_none() {
-                eprintln!("Patch Entry must be a string: {}", e);
-            }
-            value
-        })
-        .collect()
-}
-
-fn get_ids(
-    patches: Vec<PatchEntry>,
+fn get_id(
+    name: &str,
+    version: &Option<VersionReq>,
     resolve: &Resolve,
-) -> Vec<(PatchEntry, PackageId)> {
-    patches.into_iter().filter_map(|patch_entry| {
-        let mut matched_dep = None;
-        for dep in resolve.iter() {
-            if dep.name().as_str() == patch_entry.name
-                && patch_entry.version.as_ref().map_or(true, |ver| ver.matches(dep.version()))
-            {
-                if matched_dep.is_none() {
-                    matched_dep = Some(dep);
-                } else {
-                    eprintln!("There are multiple versions of {} available. Try specifying a version.", patch_entry.name);
-                }
+) -> Option<PackageId> {
+    let mut matched_dep = None;
+    for dep in resolve.iter() {
+        if dep.name().as_str() == name
+            && version
+                .as_ref()
+                .map_or(true, |ver| ver.matches(dep.version()))
+        {
+            if matched_dep.is_none() {
+                matched_dep = Some(dep);
+            } else {
+                eprintln!("There are multiple versions of {} available. Try specifying a version.", name);
             }
         }
-        if matched_dep.is_none() {
-            eprintln!("Unable to find package {} in dependencies", patch_entry.name);
-        }
-        matched_dep.map(|v| (patch_entry, v))
-    }).collect()
+    }
+    if matched_dep.is_none() {
+        eprintln!("Unable to find package {} in dependencies", name);
+    }
+    matched_dep
 }
 
 fn copy_package(pkg: &Package) -> Result<PathBuf> {
@@ -219,7 +219,11 @@ fn copy_package(pkg: &Package) -> Result<PathBuf> {
     }
 }
 
-fn apply_patches(name: &str, patches: &[PathBuf], path: &Path) -> Result<()> {
+fn apply_patches<'a>(
+    name: &str,
+    patches: impl Iterator<Item = &'a Path> + 'a,
+    path: &Path,
+) -> Result<()> {
     for patch in patches {
         let data = read_to_string(patch)?;
         let patches = Patch::from_multiple(&data)
@@ -300,28 +304,26 @@ fn main() -> Result<()> {
     let workspace = fetch_workspace(&config, &workspace_path)?;
     let (pkg_set, resolve) = resolve_ws(&workspace)?;
 
+    let custom_metadata = workspace.custom_metadata().into_iter().chain(
+        workspace
+            .members()
+            .flat_map(|member| member.manifest().custom_metadata()),
+    );
+
+    let patches = custom_metadata.flat_map(get_patches);
+    let ids = patches.flat_map(|patch| {
+        get_id(patch.name, &patch.version, &resolve).map(|id| (patch, id))
+    });
+
     let mut patched = false;
 
-    let mut handle_custom_metadata =
-        |custom_metadata: Option<&Value>| -> Result<()> {
-            let patches = get_patches(custom_metadata);
-            let ids = get_ids(patches, &resolve);
-            let packages = ids
-                .into_iter()
-                .map(|(p, id)| pkg_set.get_one(id).map(|v| (p, v)))
-                .collect::<Result<Vec<(PatchEntry, &Package)>>>()?;
-            for (patch, package) in packages {
-                let path = copy_package(package)?;
-                patched = true;
-                apply_patches(&patch.name, &patch.patches, &path)?;
-            }
-            Ok(())
-        };
-
-    handle_custom_metadata(workspace.custom_metadata())?;
-    for member in workspace.members() {
-        handle_custom_metadata(member.manifest().custom_metadata())?;
+    for (patch, id) in ids {
+        let package = pkg_set.get_one(id)?;
+        let path = copy_package(package)?;
+        patched = true;
+        apply_patches(patch.name, patch.patches.into_iter(), &path)?;
     }
+
     if !patched {
         println!("No patches found");
     }
