@@ -131,10 +131,8 @@ fn resolve_ws<'a>(ws: &Workspace<'a>) -> Result<(PackageSet<'a>, Resolve)> {
     Ok((packages, resolve))
 }
 
-fn get_patches(package: &Package) -> Vec<PatchEntry> {
-    let manifest = package.manifest();
-    manifest
-        .custom_metadata()
+fn get_patches(custom_metadata: Option<&Value>) -> Vec<PatchEntry> {
+    custom_metadata
         .and_then(|v| v.get("patch"))
         .and_then(Value::as_table)
         .map_or_else(Vec::new, |v| {
@@ -303,18 +301,26 @@ fn main() -> Result<()> {
     let (pkg_set, resolve) = resolve_ws(&workspace)?;
 
     let mut patched = false;
+
+    let mut handle_custom_metadata =
+        |custom_metadata: Option<&Value>| -> Result<()> {
+            let patches = get_patches(custom_metadata);
+            let ids = get_ids(patches, &resolve);
+            let packages = ids
+                .into_iter()
+                .map(|(p, id)| pkg_set.get_one(id).map(|v| (p, v)))
+                .collect::<Result<Vec<(PatchEntry, &Package)>>>()?;
+            for (patch, package) in packages {
+                let path = copy_package(package)?;
+                patched = true;
+                apply_patches(&patch.name, &patch.patches, &path)?;
+            }
+            Ok(())
+        };
+
+    handle_custom_metadata(workspace.custom_metadata())?;
     for member in workspace.members() {
-        let patches = get_patches(member);
-        let ids = get_ids(patches, &resolve);
-        let packages = ids
-            .into_iter()
-            .map(|(p, id)| pkg_set.get_one(id).map(|v| (p, v)))
-            .collect::<Result<Vec<(PatchEntry, &Package)>>>()?;
-        for (patch, package) in packages {
-            let path = copy_package(package)?;
-            patched = true;
-            apply_patches(&patch.name, &patch.patches, &path)?;
-        }
+        handle_custom_metadata(member.manifest().custom_metadata())?;
     }
     if !patched {
         println!("No patches found");
