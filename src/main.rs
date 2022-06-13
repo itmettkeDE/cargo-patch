@@ -131,14 +131,15 @@ fn resolve_ws<'a>(ws: &Workspace<'a>) -> Result<(PackageSet<'a>, Resolve)> {
     Ok((packages, resolve))
 }
 
-fn get_patches(custom_metadata: Option<&Value>) -> Vec<PatchEntry> {
+fn get_patches(custom_metadata: &Value) -> impl Iterator<Item = PatchEntry> + '_ {
     custom_metadata
-        .and_then(|v| v.get("patch"))
-        .and_then(Value::as_table)
-        .map_or_else(Vec::new, |v| {
-            v.iter()
+        .get("patch")
+        .into_iter()
+        .flat_map(|patch| patch.as_table().into_iter())
+        .flat_map(|table| {
+            table
+                .into_iter()
                 .filter_map(|(k, v)| parse_patch_entry(k, v))
-                .collect()
         })
 }
 
@@ -182,28 +183,29 @@ fn parse_patches(entries: &[Value]) -> Vec<PathBuf> {
         .collect()
 }
 
-fn get_ids(
-    patches: Vec<PatchEntry>,
-    resolve: &Resolve,
-) -> Vec<(PatchEntry, PackageId)> {
-    patches.into_iter().filter_map(|patch_entry| {
-        let mut matched_dep = None;
-        for dep in resolve.iter() {
-            if dep.name().as_str() == patch_entry.name
-                && patch_entry.version.as_ref().map_or(true, |ver| ver.matches(dep.version()))
-            {
-                if matched_dep.is_none() {
-                    matched_dep = Some(dep);
-                } else {
-                    eprintln!("There are multiple versions of {} available. Try specifying a version.", patch_entry.name);
-                }
+fn get_id(patch_entry: &PatchEntry, resolve: &Resolve) -> Option<PackageId> {
+    let mut matched_dep = None;
+    for dep in resolve.iter() {
+        if dep.name().as_str() == patch_entry.name
+            && patch_entry
+                .version
+                .as_ref()
+                .map_or(true, |ver| ver.matches(dep.version()))
+        {
+            if matched_dep.is_none() {
+                matched_dep = Some(dep);
+            } else {
+                eprintln!("There are multiple versions of {} available. Try specifying a version.", patch_entry.name);
             }
         }
-        if matched_dep.is_none() {
-            eprintln!("Unable to find package {} in dependencies", patch_entry.name);
-        }
-        matched_dep.map(|v| (patch_entry, v))
-    }).collect()
+    }
+    if matched_dep.is_none() {
+        eprintln!(
+            "Unable to find package {} in dependencies",
+            patch_entry.name
+        );
+    }
+    matched_dep
 }
 
 fn copy_package(pkg: &Package) -> Result<PathBuf> {
@@ -300,28 +302,25 @@ fn main() -> Result<()> {
     let workspace = fetch_workspace(&config, &workspace_path)?;
     let (pkg_set, resolve) = resolve_ws(&workspace)?;
 
+    let custom_metadata = workspace.custom_metadata().into_iter().chain(
+        workspace
+            .members()
+            .flat_map(|member| member.manifest().custom_metadata()),
+    );
+
+    let patches = custom_metadata.flat_map(get_patches);
+    let ids =
+        patches.flat_map(|patch| get_id(&patch, &resolve).map(|id| (patch, id)));
+
     let mut patched = false;
 
-    let mut handle_custom_metadata =
-        |custom_metadata: Option<&Value>| -> Result<()> {
-            let patches = get_patches(custom_metadata);
-            let ids = get_ids(patches, &resolve);
-            let packages = ids
-                .into_iter()
-                .map(|(p, id)| pkg_set.get_one(id).map(|v| (p, v)))
-                .collect::<Result<Vec<(PatchEntry, &Package)>>>()?;
-            for (patch, package) in packages {
-                let path = copy_package(package)?;
-                patched = true;
-                apply_patches(&patch.name, &patch.patches, &path)?;
-            }
-            Ok(())
-        };
-
-    handle_custom_metadata(workspace.custom_metadata())?;
-    for member in workspace.members() {
-        handle_custom_metadata(member.manifest().custom_metadata())?;
+    for (patch, id) in ids {
+        let package = pkg_set.get_one(id)?;
+        let path = copy_package(package)?;
+        patched = true;
+        apply_patches(&patch.name, &patch.patches, &path)?;
     }
+
     if !patched {
         println!("No patches found");
     }
