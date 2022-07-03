@@ -1,6 +1,6 @@
 [package]
 name = "cargo-patch"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Marc Mettke <marc@itmettke.de>"]
 edition = "2021"
 description = "Cargo Subcommand for patching dependencies using patch files"
@@ -12,11 +12,11 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1"
-cargo = "0.62"
+cargo = "0.63"
 fs_extra = "1"
 patch = "0.6"
 semver = "1"
-toml_edit = { version = "0.13" }
+toml_edit = { version = "0.14" }
 # toml_edit = { version = "0.14", features = ["easy"] }
 
 [dev-dependencies]
