@@ -1,6 +1,7 @@
+mod common;
+
 use cargo_test_macro::cargo_test;
-use cargo_test_support::{cargo_dir, main_file, project};
-use std::env;
+use cargo_test_support::{main_file, project};
 
 #[cargo_test]
 fn patch_git_invalid_dependency() {
@@ -24,9 +25,7 @@ fn patch_git_invalid_dependency() {
         .file("test.patch", r#""#)
         .build();
 
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin)
+    p.process(&common::cargo_patch_exe())
         .with_stderr_contains(
             "Error: failed to get `asdf` as a dependency of package [..]",
         )
@@ -55,9 +54,7 @@ fn patch_git_missing_patch() {
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin)
+    p.process(&common::cargo_patch_exe())
         .with_stderr("Error: Unable to find patch file with path: \"test.patch\"\n")
         .with_status(1)
         .run();
@@ -85,9 +82,7 @@ fn patch_git_invalid_patch() {
         .file("test.patch", r#""#)
         .build();
 
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin)
+    p.process(&common::cargo_patch_exe())
         .with_stderr("Error: Unable to parse patch file\n")
         .with_status(1)
         .run();
@@ -129,9 +124,9 @@ fn patch_git_detailed() {
         .file("test.patch", patch)
         .build();
 
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin).with_stdout("Patched serde\n").run();
+    p.process(&common::cargo_patch_exe())
+        .with_stdout("Patched serde\n")
+        .run();
 
     let license_mit = p
         .build_dir()
@@ -190,9 +185,9 @@ fn patch_git_workspace_root() {
         .file("test/src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin).with_stdout("Patched serde\n").run();
+    p.process(&common::cargo_patch_exe())
+        .with_stdout("Patched serde\n")
+        .run();
 
     let license_mit = p
         .build_dir()
@@ -245,9 +240,9 @@ fn patch_git_workspace_metadata() {
         .file("test/src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    let patch_bin =
-        cargo_dir().join(format!("cargo-patch{}", env::consts::EXE_SUFFIX));
-    p.process(&patch_bin).with_stdout("Patched serde\n").run();
+    p.process(&common::cargo_patch_exe())
+        .with_stdout("Patched serde\n")
+        .run();
 
     let license_mit = p
         .build_dir()
