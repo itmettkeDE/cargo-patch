@@ -1,6 +1,6 @@
 [package]
 name = "cargo-patch"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Marc Mettke <marc@itmettke.de>"]
 edition = "2021"
 description = "Cargo Subcommand for patching dependencies using patch files"
