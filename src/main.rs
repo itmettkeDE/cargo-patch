@@ -70,6 +70,7 @@ use cargo::{
 use fs_extra::dir::{copy, CopyOptions};
 use patch::{Line, Patch};
 use semver::VersionReq;
+use std::fmt::{Display, Formatter};
 use std::{
     fs,
     io::ErrorKind,
@@ -82,6 +83,25 @@ struct PatchEntry<'a> {
     name: &'a str,
     version: Option<VersionReq>,
     patches: Vec<&'a Path>,
+}
+
+#[derive(Debug)]
+struct PatchFailed {
+    line: u64,
+    file: PathBuf,
+}
+
+impl std::error::Error for PatchFailed {}
+
+impl Display for PatchFailed {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "failed to apply patch to {} on line {}",
+            self.file.display(),
+            self.line + 1
+        )
+    }
 }
 
 #[allow(clippy::wildcard_enum_match_arm)]
@@ -232,11 +252,15 @@ fn apply_patches<'a>(
             let file_path = path.to_owned();
             let file_path = file_path.join(patch.old.path.as_ref());
             let file_path = file_path.canonicalize()?;
-            if file_path.starts_with(&path) {
+            if let Ok(subpath) = file_path.strip_prefix(path) {
                 let data = read_to_string(&file_path)?;
-                let data = apply_patch(patch, &data);
-                fs::write(file_path, data)?;
-                println!("Patched {}", name);
+                let data =
+                    apply_patch(patch, &data).map_err(|line| PatchFailed {
+                        file: subpath.to_owned(),
+                        line,
+                    })?;
+                fs::write(&file_path, data)?;
+                println!("Patched {}: {}", name, subpath.display());
             } else {
                 return Err(anyhow!("Patch file tried to escape dependency folder"));
             }
@@ -245,12 +269,15 @@ fn apply_patches<'a>(
     Ok(())
 }
 
+/// Apply a patch to the given text.
+/// If the apply fails (i.e. due to mismatch in context lines), returns an Err with the line number
+/// it failed on (0-based).
 #[allow(
     clippy::as_conversions,
     clippy::indexing_slicing,
     clippy::cast_possible_truncation
 )]
-fn apply_patch(diff: Patch<'_>, old: &str) -> String {
+fn apply_patch(diff: Patch<'_>, old: &str) -> Result<String, u64> {
     let old_lines = old.lines().collect::<Vec<&str>>();
     let mut out: Vec<&str> = vec![];
     let mut old_line = 0;
@@ -261,14 +288,21 @@ fn apply_patch(diff: Patch<'_>, old: &str) -> String {
         }
         for line in hunk.lines {
             match line {
-                Line::Context(_) => {
+                Line::Context(line) => {
+                    let old = old_lines.get(old_line as usize);
+                    if old != Some(&line) {
+                        return Err(old_line);
+                    }
                     if (old_line as usize) < old_lines.len() {
-                        out.push(old_lines[old_line as usize]);
+                        out.push(line);
                     }
                     old_line += 1;
                 }
                 Line::Add(s) => out.push(s),
-                Line::Remove(_) => {
+                Line::Remove(line) => {
+                    if old_lines[old_line as usize] != line {
+                        return Err(old_line);
+                    }
                     old_line += 1;
                 }
             }
@@ -280,7 +314,7 @@ fn apply_patch(diff: Patch<'_>, old: &str) -> String {
     if old.ends_with('\n') {
         out.push("");
     }
-    out.join("\n")
+    Ok(out.join("\n"))
 }
 
 #[allow(clippy::wildcard_enum_match_arm)]
@@ -346,7 +380,6 @@ mod tests {
 +This is the patched line
  
  This is the third line
- 
 "#;
         let content = r#"This is the first line
 
@@ -361,7 +394,8 @@ This is the patched line
 This is the third line
 "#;
         let patch = Patch::from_single(patch).expect("Unable to parse patch");
-        let test_patched = apply_patch(patch, content);
+        let test_patched =
+            apply_patch(patch, content).expect("Failed to apply patch");
         assert_eq!(patched, test_patched, "Patched content does not match");
     }
 
@@ -406,7 +440,8 @@ culpa qui officia deserunt mollit anim
 id est laborum.
 "#;
         let patch = Patch::from_single(patch).expect("Unable to parse patch");
-        let test_patched = apply_patch(patch, content);
+        let test_patched =
+            apply_patch(patch, content).expect("Failed to apply patch");
         assert_eq!(patched, test_patched, "Patched content does not match");
     }
 
@@ -424,12 +459,7 @@ id est laborum.
 test2
 test3
 "#;
-        let patched = r#"test1
-test4
-test3
-"#;
         let patch = Patch::from_single(patch).expect("Unable to parse patch");
-        let test_patched = apply_patch(patch, content);
-        assert_eq!(patched, test_patched, "Patched content does not match");
+        assert_eq!(apply_patch(patch, content), Err(0)); // first line context doesn't match
     }
 }
