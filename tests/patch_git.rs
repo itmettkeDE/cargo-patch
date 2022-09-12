@@ -125,7 +125,7 @@ fn patch_git_detailed() {
         .build();
 
     p.process(&common::cargo_patch_exe())
-        .with_stdout("Patched serde\n")
+        .with_stdout("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p
@@ -186,7 +186,7 @@ fn patch_git_workspace_root() {
         .build();
 
     p.process(&common::cargo_patch_exe())
-        .with_stdout("Patched serde\n")
+        .with_stdout("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p
@@ -241,7 +241,7 @@ fn patch_git_workspace_metadata() {
         .build();
 
     p.process(&common::cargo_patch_exe())
-        .with_stdout("Patched serde\n")
+        .with_stdout("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p
