@@ -12,7 +12,7 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1"
-cargo = "0.64"
+cargo = "0.65"
 fs_extra = "1"
 patch = "0.6"
 semver = "1"
