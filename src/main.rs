@@ -402,16 +402,18 @@ fn apply_patches<'a>(
             let new_file_path = check_path(path, new_path, &loc);
             let old_file_path = check_path(path, old_path, &loc);
 
-            let patch_type = if patch.new.path == "/dev/null" {
-                // delete
-                do_patch(patch, Some(old_file_path?), None)?
-            } else if patch.old.path == "/dev/null" {
-                // create
-                do_patch(patch, None, Some(new_file_path?))?
+            let new_file_path = if patch.new.path == "/dev/null" {
+                None
             } else {
-                // modify
-                do_patch(patch, Some(old_file_path?), Some(new_file_path?))?
+                Some(new_file_path?)
             };
+            let old_file_path = if patch.old.path == "/dev/null" {
+                None
+            } else {
+                Some(old_file_path?)
+            };
+
+            let patch_type = do_patch(patch, old_file_path, new_file_path)?;
 
             let loc = match patch_type {
                 PatchType::Modify => loc_simple,
