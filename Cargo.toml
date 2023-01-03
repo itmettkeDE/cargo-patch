@@ -14,7 +14,7 @@ categories = ["command-line-utilities"]
 anyhow = "1"
 cargo = "0.66"
 fs_extra = "1"
-patch = "0.6"
+patch = "0.7"
 semver = "1"
 toml_edit = { version = "0.14" }
 

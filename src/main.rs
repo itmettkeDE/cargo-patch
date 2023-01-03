@@ -78,17 +78,50 @@ use std::{
 };
 use toml_edit::easy::Value;
 
+#[derive(Debug, Clone, Default)]
+enum PatchSource {
+    #[default]
+    Default,
+    GithubPrDiff,
+}
+
+#[derive(Debug, Clone)]
+struct PatchItem<'a> {
+    path: &'a Path,
+    source: PatchSource,
+}
+
 #[derive(Debug, Clone)]
 struct PatchEntry<'a> {
     name: &'a str,
     version: Option<VersionReq>,
-    patches: Vec<&'a Path>,
+    patches: Vec<PatchItem<'a>>,
 }
 
 #[derive(Debug)]
 struct PatchFailed {
     line: u64,
     file: PathBuf,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum PatchType {
+    Modify,
+    Create,
+    Delete,
+}
+
+impl PatchSource {
+    fn from_str(s: &str) -> Self {
+        match s {
+            "Default" => Self::Default,
+            "GithubPrDiff" => Self::GithubPrDiff,
+            &_ => {
+                eprintln!("Unknown patch source: {s}");
+                Self::Default
+            }
+        }
+    }
 }
 
 impl std::error::Error for PatchFailed {}
@@ -185,11 +218,34 @@ fn parse_patch_entry<'a>(name: &'a str, entry: &'a Value) -> Option<PatchEntry<'
         .into_iter()
         .flat_map(|patches| {
             patches.iter().flat_map(|patch| {
-                let value = patch.as_str().map(Path::new);
-                if value.is_none() {
-                    eprintln!("Patch Entry must be a string: {}", patch);
-                }
-                value
+                let item = if patch.is_str() {
+                    Some((patch.as_str(), Default::default()))
+                } else {
+                    patch.as_table().map(
+                        |it| (
+                            it.get("path").and_then(Value::as_str),
+                            it.get("source").and_then(Value::as_str)
+                              .map_or_else(Default::default, PatchSource::from_str)
+                        ))
+                };
+
+                let (path, source) = if let Some(item) = item {item } else {
+                    eprintln!("Patch Entry must be a string or a table with path and source: {}", patch);
+                    return None;
+                };
+
+                let path = path.map(Path::new);
+                let path = if let Some(path) = path {
+                    path
+                } else {
+                    eprintln!("Patch Entry must be a string or a table with path and source: {}", patch);
+                    return None;
+                };
+
+                Some(PatchItem {
+                    path,
+                    source,
+                })
             })
         })
         .collect();
@@ -239,31 +295,131 @@ fn copy_package(pkg: &Package) -> Result<PathBuf> {
     }
 }
 
+fn do_patch(
+    diff: Patch<'_>,
+    old_path: Option<PathBuf>,
+    new_path: Option<PathBuf>,
+) -> Result<PatchType> {
+    // delete
+    if new_path.is_none() {
+        if let Some(old) = old_path {
+            fs::remove_file(old)?;
+            return Ok(PatchType::Delete);
+        }
+        return Err(anyhow!("Both old and new file are all empty."));
+    }
+    let new_path = new_path.unwrap();
+
+    let (old_data, patch_type) = if let Some(old) = old_path {
+        // modify
+        (fs::read_to_string(old)?, PatchType::Modify)
+    } else {
+        // create
+        ("".to_string(), PatchType::Create)
+    };
+
+    let data =
+        apply_patch(diff, &old_data).map_err(|line| PatchFailed {
+            file: PathBuf::from(new_path.to_owned().file_name().map_or_else(
+                || "".to_string(),
+                |it| it.to_string_lossy().to_string(),
+            )),
+            line,
+        })?;
+
+    if patch_type == PatchType::Create {
+        if let Some(parent) = new_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+    fs::write(&new_path, data)?;
+
+    Ok(patch_type)
+}
+
 fn apply_patches<'a>(
     name: &str,
-    patches: impl Iterator<Item = &'a Path> + 'a,
+    patches: impl Iterator<Item = PatchItem<'a>> + 'a,
     path: &Path,
 ) -> Result<()> {
-    for patch in patches {
+    for PatchItem {
+        path: patch,
+        source,
+    } in patches
+    {
         let data = read_to_string(patch)?;
         let patches = Patch::from_multiple(&data)
             .map_err(|_| anyhow!("Unable to parse patch file"))?;
         for patch in patches {
-            let file_path = path.to_owned();
-            let file_path = file_path.join(patch.old.path.as_ref());
-            let file_path = file_path.canonicalize()?;
-            if let Ok(subpath) = file_path.strip_prefix(path) {
-                let data = read_to_string(&file_path)?;
-                let data =
-                    apply_patch(patch, &data).map_err(|line| PatchFailed {
-                        file: subpath.to_owned(),
-                        line,
-                    })?;
-                fs::write(&file_path, data)?;
-                println!("Patched {}: {}", name, subpath.display());
-            } else {
-                return Err(anyhow!("Patch file tried to escape dependency folder"));
+            fn check_path<P: AsRef<Path>>(
+                base: &Path,
+                path: P,
+                loc: &str,
+            ) -> Result<PathBuf> {
+                let path = base.join(path);
+                let canonicalize_result = path.canonicalize();
+
+                if canonicalize_result.is_err()
+                    && path.to_string_lossy().contains("..")
+                {
+                    return Err(anyhow!(
+                        "Failed to canonicalize path and the path has .. in it. ({loc})",
+                    ));
+                } else if canonicalize_result.is_err() {
+                    return Ok(path);
+                }
+
+                if canonicalize_result?.strip_prefix(base).is_err() {
+                    return Err(anyhow!(
+                        "Patch file tried to escape dependency folder ({loc})",
+                    ));
+                }
+
+                Ok(path)
             }
+
+            let (old_path, new_path) = match source {
+                PatchSource::Default => {
+                    (patch.old.path.as_ref(), patch.new.path.as_ref())
+                }
+                PatchSource::GithubPrDiff => (
+                    patch
+                        .old
+                        .path
+                        .strip_prefix("a/")
+                        .unwrap_or_else(|| patch.old.path.as_ref()),
+                    patch
+                        .new
+                        .path
+                        .strip_prefix("b/")
+                        .unwrap_or_else(|| patch.new.path.as_ref()),
+                ),
+            };
+
+            let loc = format!("{}: {} -> {}", name, old_path, new_path);
+            let loc_simple = format!("{}: {}", name, old_path);
+
+            let new_file_path = check_path(path, new_path, &loc);
+            let old_file_path = check_path(path, old_path, &loc);
+
+            let new_file_path = if patch.new.path == "/dev/null" {
+                None
+            } else {
+                Some(new_file_path?)
+            };
+            let old_file_path = if patch.old.path == "/dev/null" {
+                None
+            } else {
+                Some(old_file_path?)
+            };
+
+            let patch_type = do_patch(patch, old_file_path, new_file_path)?;
+
+            let loc = match patch_type {
+                PatchType::Modify => loc_simple,
+                PatchType::Create | PatchType::Delete => loc,
+            };
+            println!("Patched {loc}");
         }
     }
     Ok(())
@@ -282,7 +438,7 @@ fn apply_patch(diff: Patch<'_>, old: &str) -> Result<String, u64> {
     let mut out: Vec<&str> = vec![];
     let mut old_line = 0;
     for hunk in diff.hunks {
-        while old_line < hunk.old_range.start - 1 {
+        while hunk.old_range.start != 0 && old_line < hunk.old_range.start - 1 {
             out.push(old_lines[old_line as usize]);
             old_line += 1;
         }
