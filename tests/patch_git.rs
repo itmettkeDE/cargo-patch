@@ -25,7 +25,7 @@ fn patch_git_invalid_dependency() {
         .file("test.patch", r#""#)
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr_contains(
             "Error: failed to get `asdf` as a dependency of package [..]",
         )
@@ -54,7 +54,7 @@ fn patch_git_missing_patch() {
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr("Error: Unable to find patch file with path: \"test.patch\"\n")
         .with_status(1)
         .run();
@@ -82,7 +82,7 @@ fn patch_git_invalid_patch() {
         .file("test.patch", r#""#)
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr("Error: Unable to parse patch file\n")
         .with_status(1)
         .run();
@@ -124,7 +124,7 @@ fn patch_git_detailed() {
         .file("test.patch", patch)
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stdout("Patched serde: LICENSE-MIT\n")
         .run();
 
@@ -185,7 +185,7 @@ fn patch_git_workspace_root() {
         .file("test/src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stdout("Patched serde: LICENSE-MIT\n")
         .run();
 
@@ -240,7 +240,7 @@ fn patch_git_workspace_metadata() {
         .file("test/src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stdout("Patched serde: LICENSE-MIT\n")
         .run();
 

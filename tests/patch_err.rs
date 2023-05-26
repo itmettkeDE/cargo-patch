@@ -38,7 +38,7 @@ fn patch_context_mismatch() {
         .file("test.patch", patch)
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr("Error: failed to apply patch to LICENSE-MIT on line 8")
         .with_status(1)
         .run();
@@ -66,7 +66,7 @@ fn patch_deleted_mismatch() {
         .file("test.patch", patch)
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr("Error: failed to apply patch to LICENSE-MIT on line 12")
         .with_status(1)
         .run();

@@ -76,7 +76,7 @@ use std::{
     io::ErrorKind,
     path::{Path, PathBuf},
 };
-use toml_edit::easy::Value;
+use toml::Value;
 
 #[derive(Debug, Clone, Default)]
 enum PatchSource {
@@ -188,7 +188,8 @@ fn get_patches(
     custom_metadata: &Value,
 ) -> impl Iterator<Item = PatchEntry<'_>> + '_ {
     custom_metadata
-        .get("patch")
+        .as_table()
+        .and_then(|table| table.get("patch"))
         .into_iter()
         .flat_map(|patch| patch.as_table().into_iter())
         .flat_map(|table| {
@@ -200,14 +201,14 @@ fn get_patches(
 
 fn parse_patch_entry<'a>(name: &'a str, entry: &'a Value) -> Option<PatchEntry<'a>> {
     let entry = entry.as_table().or_else(|| {
-        eprintln!("Entry {} must contain a table.", name);
+        eprintln!("Entry {name} must contain a table.");
         None
     })?;
 
     let version = entry.get("version").and_then(|version| {
         let value = version.as_str().and_then(|s| VersionReq::parse(s).ok());
         if value.is_none() {
-            eprintln!("Version must be a value semver string: {}", version);
+            eprintln!("Version must be a value semver string: {version}");
         }
         value
     });
@@ -230,7 +231,7 @@ fn parse_patch_entry<'a>(name: &'a str, entry: &'a Value) -> Option<PatchEntry<'
                 };
 
                 let (path, source) = if let Some(item) = item {item } else {
-                    eprintln!("Patch Entry must be a string or a table with path and source: {}", patch);
+                    eprintln!("Patch Entry must be a string or a table with path and source: {patch}");
                     return None;
                 };
 
@@ -238,7 +239,7 @@ fn parse_patch_entry<'a>(name: &'a str, entry: &'a Value) -> Option<PatchEntry<'
                 let path = if let Some(path) = path {
                     path
                 } else {
-                    eprintln!("Patch Entry must be a string or a table with path and source: {}", patch);
+                    eprintln!("Patch Entry must be a string or a table with path and source: {patch}");
                     return None;
                 };
 
@@ -272,12 +273,12 @@ fn get_id(
             if matched_dep.is_none() {
                 matched_dep = Some(dep);
             } else {
-                eprintln!("There are multiple versions of {} available. Try specifying a version.", name);
+                eprintln!("There are multiple versions of {name} available. Try specifying a version.");
             }
         }
     }
     if matched_dep.is_none() {
-        eprintln!("Unable to find package {} in dependencies", name);
+        eprintln!("Unable to find package {name} in dependencies");
     }
     matched_dep
 }
@@ -396,8 +397,8 @@ fn apply_patches<'a>(
                 ),
             };
 
-            let loc = format!("{}: {} -> {}", name, old_path, new_path);
-            let loc_simple = format!("{}: {}", name, old_path);
+            let loc = format!("{name}: {old_path} -> {new_path}");
+            let loc_simple = format!("{name}: {old_path}");
 
             let new_file_path = check_path(path, new_path, &loc);
             let old_file_path = check_path(path, old_path, &loc);
