@@ -7,7 +7,7 @@ use cargo_test_support::{main_file, project};
 fn patch_empty_no_config() {
     let p = project().build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr_contains("Error: failed to parse manifest at [..]")
         .with_status(1)
         .run();
@@ -23,7 +23,7 @@ fn patch_empty_no_src() {
     "#;
     let p = project().file("Cargo.toml", manifest).build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr_contains("Error: failed to parse manifest at [..]")
         .with_status(1)
         .run();
@@ -42,7 +42,7 @@ fn patch_empty_simple() {
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stdout("No patches found\n")
         .run();
 }
@@ -63,7 +63,7 @@ fn patch_empty_missing_dependency() {
         .file("src/main.rs", &main_file(r#""i am foo""#, &[]))
         .build();
 
-    p.process(&common::cargo_patch_exe())
+    p.process(common::cargo_patch_exe())
         .with_stderr("Unable to find package serde in dependencies\n")
         .run();
 }
