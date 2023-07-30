@@ -11,6 +11,8 @@ Simply run:
 cargo install cargo-patch
 ```
 
+This is not necessary when patching via `build.rs` file
+
 ## Usage
 
 To patch a dependency one has to add the following
@@ -41,6 +43,25 @@ version one has to override the dependency using
 [patch.crates-io]
 serde = { path = './target/patch/serde-1.0.110' }
 ```
+
+Instead of running `cargo patch` its also possible to add a `build.rs` file like this:
+
+```rust
+fn main() {
+    println!("cargo:rerun-if-changed=Cargo.toml");
+    println!("cargo:rerun-if-changed=patches/");
+    cargo_patch::patch().expect("Failed while patching");
+}
+```
+
+To make it work, add the cargo-patch library to the `build-dependencies`
+
+```tomlusing the
+[build-dependencies]
+cargo-patch = "0.3"
+```
+
+Note, however, that all your patches should be in a single folder called `patches` or something similar. This is to make sure that the build script is executed again when something changes.
 
 ## Patch format
 
