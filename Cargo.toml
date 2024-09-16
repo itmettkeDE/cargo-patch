@@ -16,7 +16,7 @@ cargo = "0.72"
 fs_extra = "1"
 patch = "0.7"
 semver = "1"
-toml = "0.7"
+toml = "0.8"
 
 [dev-dependencies]
 cargo-test-macro = { git = "https://github.com/rust-lang/cargo.git", version = "0.1.0", tag = "0.72.1" }
