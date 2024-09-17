@@ -32,6 +32,7 @@ patches = ["test.patch"]
     (p.process(common::cargo_patch_exe()), p)
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_create_file() {
     let (mut e, p) = gen_execs(
@@ -54,6 +55,7 @@ fn patch_create_file() {
     assert_eq!(content.as_str(), TEST_CONTENT);
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_delete_file() {
     let (mut e, p) = gen_execs(
@@ -85,6 +87,7 @@ fn patch_delete_file() {
     assert!(!file.exists())
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_invalid_both_empty() {
     let (mut e, _) = gen_execs(

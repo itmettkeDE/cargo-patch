@@ -3,6 +3,7 @@ mod common;
 use cargo_test_macro::cargo_test;
 use cargo_test_support::{main_file, project};
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_invalid_dependency() {
     let manifest = r#"
@@ -33,6 +34,7 @@ fn patch_git_invalid_dependency() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_missing_patch() {
     let manifest = r#"
@@ -60,6 +62,7 @@ fn patch_git_missing_patch() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_invalid_patch() {
     let manifest = r#"
@@ -88,6 +91,7 @@ fn patch_git_invalid_patch() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_detailed() {
     let manifest = r#"
@@ -138,6 +142,7 @@ fn patch_git_detailed() {
     assert!(licenes.contains("PATCHED"));
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_workspace_root() {
     let manifest = r#"
@@ -199,6 +204,7 @@ fn patch_git_workspace_root() {
     assert!(licenes.contains("PATCHED"));
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_workspace_metadata() {
     let manifest = r#"

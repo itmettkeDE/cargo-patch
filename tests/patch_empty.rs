@@ -3,6 +3,7 @@ mod common;
 use cargo_test_macro::cargo_test;
 use cargo_test_support::{main_file, project};
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_empty_no_config() {
     let p = project().build();
@@ -13,6 +14,7 @@ fn patch_empty_no_config() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_empty_no_src() {
     let manifest = r#"
@@ -29,6 +31,7 @@ fn patch_empty_no_src() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_empty_simple() {
     let manifest = r#"
@@ -47,6 +50,7 @@ fn patch_empty_simple() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_empty_missing_dependency() {
     let manifest = r#"

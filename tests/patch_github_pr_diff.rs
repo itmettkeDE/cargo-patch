@@ -26,6 +26,7 @@ patches = [{ path = "test.patch", source = "GithubPrDiff" }]
     (p.process(common::cargo_patch_exe()), p)
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_file() {
     let (mut e, p) = gen_execs(
