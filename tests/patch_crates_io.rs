@@ -139,9 +139,9 @@ fn patch_crates_io_simple() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
 
 #[allow(deprecated)]
@@ -191,9 +191,9 @@ fn patch_crates_io_detailed() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
 
 #[allow(deprecated)]
@@ -253,9 +253,9 @@ fn patch_git_workspace_root() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
 
 #[allow(deprecated)]
@@ -309,7 +309,7 @@ fn patch_git_workspace_metadata() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
