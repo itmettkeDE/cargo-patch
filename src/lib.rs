@@ -65,8 +65,12 @@ use cargo::{
         PackageId, Resolve, Workspace,
     },
     ops::{get_resolved_packages, load_pkg_lockfile, resolve_with_previous},
-    util::{config::Config, important_paths::find_root_manifest_for_wd},
+    util::important_paths::find_root_manifest_for_wd,
+    GlobalContext,
 };
+
+use cargo::sources::SourceConfigMap;
+use cargo::util::cache_lock::CacheLockMode::DownloadExclusive;
 use fs_extra::dir::{copy, CopyOptions};
 use patch::{Line, Patch};
 use semver::VersionReq;
@@ -148,10 +152,10 @@ fn clear_patch_folder() -> Result<()> {
     }
 }
 
-fn setup_config() -> Result<Config> {
-    let config = Config::default()?;
-    config.shell().set_verbosity(Verbosity::Quiet);
-    Ok(config)
+fn setup_gctx() -> Result<GlobalContext> {
+    let gctx = GlobalContext::default()?;
+    gctx.shell().set_verbosity(Verbosity::Quiet);
+    Ok(gctx)
 }
 
 fn find_cargo_toml(path: &Path) -> Result<PathBuf> {
@@ -159,12 +163,17 @@ fn find_cargo_toml(path: &Path) -> Result<PathBuf> {
     find_root_manifest_for_wd(&path)
 }
 
-fn fetch_workspace<'a>(config: &'a Config, path: &Path) -> Result<Workspace<'a>> {
-    Workspace::new(path, config)
+fn fetch_workspace<'gctx>(
+    gctx: &'gctx GlobalContext,
+    path: &Path,
+) -> Result<Workspace<'gctx>> {
+    Workspace::new(path, gctx)
 }
 
 fn resolve_ws<'a>(ws: &Workspace<'a>) -> Result<(PackageSet<'a>, Resolve)> {
-    let mut registry = PackageRegistry::new(ws.config())?;
+    let scm = SourceConfigMap::new(ws.gctx())?;
+    let mut registry = PackageRegistry::new_with_source_config(ws.gctx(), scm)?;
+
     registry.lock_patches();
     let resolve = {
         let prev = load_pkg_lockfile(ws)?;
@@ -489,10 +498,10 @@ fn read_to_string(path: &Path) -> Result<String> {
 
 pub fn patch() -> Result<()> {
     clear_patch_folder()?;
-    let config = setup_config()?;
-    let _lock = config.acquire_package_cache_lock()?;
+    let gctx = setup_gctx()?;
+    let _lock = gctx.acquire_package_cache_lock(DownloadExclusive)?;
     let workspace_path = find_cargo_toml(&PathBuf::from("."))?;
-    let workspace = fetch_workspace(&config, &workspace_path)?;
+    let workspace = fetch_workspace(&gctx, &workspace_path)?;
     let (pkg_set, resolve) = resolve_ws(&workspace)?;
 
     let custom_metadata = workspace.custom_metadata().into_iter().chain(
