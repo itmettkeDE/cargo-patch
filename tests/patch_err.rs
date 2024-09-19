@@ -16,6 +16,7 @@ const MANIFEST: &str = r#"
     patches = ["test.patch"]
 "#;
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_context_mismatch() {
     let patch = r#"--- LICENSE-MIT	2020-05-20 18:44:09.709027472 +0200
@@ -44,6 +45,7 @@ fn patch_context_mismatch() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_deleted_mismatch() {
     let patch = r#"--- LICENSE-MIT	2020-05-20 18:44:09.709027472 +0200

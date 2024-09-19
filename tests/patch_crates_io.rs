@@ -3,6 +3,7 @@ mod common;
 use cargo_test_macro::cargo_test;
 use cargo_test_support::{main_file, project};
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_crates_io_invalid_dependency() {
     let manifest = r#"
@@ -34,6 +35,7 @@ fn patch_crates_io_invalid_dependency() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_crates_io_missing_patch() {
     let manifest = r#"
@@ -61,6 +63,7 @@ fn patch_crates_io_missing_patch() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_crates_io_invalid_patch() {
     let manifest = r#"
@@ -89,6 +92,7 @@ fn patch_crates_io_invalid_patch() {
         .run();
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_crates_io_simple() {
     let manifest = r#"
@@ -135,11 +139,12 @@ fn patch_crates_io_simple() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_crates_io_detailed() {
     let manifest = r#"
@@ -186,11 +191,12 @@ fn patch_crates_io_detailed() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_workspace_root() {
     let manifest = r#"
@@ -247,11 +253,12 @@ fn patch_git_workspace_root() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }
 
+#[allow(deprecated)]
 #[cargo_test]
 fn patch_git_workspace_metadata() {
     let manifest = r#"
@@ -302,7 +309,7 @@ fn patch_git_workspace_metadata() {
         .join("patch")
         .join("serde-1.0.110")
         .join("LICENSE-MIT");
-    let licenes =
+    let licenses =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(licenses.contains("PATCHED"));
 }

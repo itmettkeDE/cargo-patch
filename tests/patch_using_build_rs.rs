@@ -2,9 +2,11 @@ mod common;
 
 use cargo_test_macro::cargo_test;
 use cargo_test_support::{main_file, project};
+use std::fmt;
 
 #[cargo_test]
 fn patch_using_build_rs() {
+    let memchr_version = "2.7.4";
     let manifest = format!(
         r#"
         [package]
@@ -13,7 +15,7 @@ fn patch_using_build_rs() {
         authors = ["wycats@example.com"]
 
         [dependencies]
-        memchr = "=2.5.0"
+        memchr = "={memchr_version}"
 
         [build-dependencies]
         cargo-patch = {{ path = "{cargo_patch_path}" }}
@@ -50,9 +52,9 @@ fn patch_using_build_rs() {
     let license_mit = p
         .build_dir()
         .join("patch")
-        .join("memchr-2.5.0")
+        .join(fmt::format(format_args!("memchr-{}", memchr_version)))
         .join("LICENSE-MIT");
-    let licenes =
+    let license =
         std::fs::read_to_string(license_mit).expect("Unable to read license file");
-    assert!(licenes.contains("PATCHED"));
+    assert!(license.contains("PATCHED"));
 }
