@@ -2,7 +2,7 @@
 name = "cargo-patch"
 version = "0.3.2"
 authors = ["Marc Mettke <marc@itmettke.de>"]
-edition = "2021"
+edition = "2024"
 description = "Cargo Subcommand for patching dependencies using patch files"
 license = "MIT"
 repository = "https://github.com/mettke/cargo-patch"
