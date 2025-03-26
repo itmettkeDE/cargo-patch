@@ -12,12 +12,12 @@ categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1"
-cargo = "0.82"
+cargo = "0.86"
 fs_extra = "1"
 patch = "0.7"
 semver = "1"
 toml = "0.8"
 
 [dev-dependencies]
-cargo-test-macro = "0.3"
-cargo-test-support = "0.3"
+cargo-test-macro = "0.4"
+cargo-test-support = "0.7"
