@@ -48,14 +48,14 @@
 //!
 //! # Limitations
 //!
-//! Its only possible to patch dependencies of binary crates as it is not possible
+//! It's only possible to patch dependencies of binary crates as it is not possible
 //! for a subcommand to intercept the build process.
 //!
 
 #![deny(clippy::all, clippy::nursery)]
 #![deny(nonstandard_style, rust_2018_idioms)]
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use cargo::{
     core::{
         package::{Package, PackageSet},
@@ -322,7 +322,11 @@ fn do_patch(
 
     let (old_data, patch_type) = if let Some(old) = old_path {
         // modify
-        (fs::read_to_string(old)?, PatchType::Modify)
+        (
+            fs::read_to_string(old.as_path())
+                .context(format!("Did not find {}", old.as_path().display()))?,
+            PatchType::Modify,
+        )
     } else {
         // create
         ("".to_string(), PatchType::Create)
