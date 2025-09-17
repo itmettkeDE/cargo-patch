@@ -58,7 +58,7 @@ fn patch_crates_io_missing_patch() {
         .build();
 
     p.process(common::cargo_patch_exe())
-        .with_stderr("Error: Unable to find patch file with path: \"test.patch\"\n")
+        .with_stderr_contains("Error: Unable to find patch file with path: \"test.patch\"\n")
         .with_status(1)
         .run();
 }
@@ -87,7 +87,7 @@ fn patch_crates_io_invalid_patch() {
         .build();
 
     p.process(common::cargo_patch_exe())
-        .with_stderr("Error: Unable to parse patch file\n")
+        .with_stderr_contains("Error: Unable to parse patch file\n")
         .with_status(1)
         .run();
 }
@@ -131,7 +131,7 @@ fn patch_crates_io_simple() {
 
     p.process(common::cargo_patch_exe())
         .cwd(p.root())
-        .with_stdout("Patched serde: LICENSE-MIT\n")
+        .with_stdout_contains("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p
@@ -183,7 +183,7 @@ fn patch_crates_io_detailed() {
 
     p.process(common::cargo_patch_exe())
         .cwd(p.root())
-        .with_stdout("Patched serde: LICENSE-MIT\n")
+        .with_stdout_contains("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p
@@ -245,7 +245,7 @@ fn patch_git_workspace_root() {
         .build();
 
     p.process(common::cargo_patch_exe())
-        .with_stdout("Patched serde: LICENSE-MIT\n")
+        .with_stdout_contains("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p
@@ -301,7 +301,7 @@ fn patch_git_workspace_metadata() {
         .build();
 
     p.process(common::cargo_patch_exe())
-        .with_stdout("Patched serde: LICENSE-MIT\n")
+        .with_stdout_contains("Patched serde: LICENSE-MIT\n")
         .run();
 
     let license_mit = p

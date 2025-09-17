@@ -7,3 +7,7 @@
 
 # Rls logs
 *.log
+
+#Tooling
+
+.idea

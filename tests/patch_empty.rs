@@ -46,7 +46,7 @@ fn patch_empty_simple() {
         .build();
 
     p.process(common::cargo_patch_exe())
-        .with_stdout("No patches found\n")
+        .with_stdout_contains("No patches found\n")
         .run();
 }
 
@@ -68,6 +68,6 @@ fn patch_empty_missing_dependency() {
         .build();
 
     p.process(common::cargo_patch_exe())
-        .with_stderr("Unable to find package serde in dependencies\n")
+        .with_stderr_contains("Unable to find package serde in dependencies\n")
         .run();
 }

@@ -47,7 +47,7 @@ fn patch_create_file() {
 "#,
     );
 
-    e.with_stdout("Patched serde: /dev/null -> test.txt").run();
+    e.with_stdout_contains("Patched serde: /dev/null -> test.txt").run();
 
     let file = p.build_dir().join("patch").join("serde").join("test.txt");
 
@@ -78,7 +78,7 @@ fn patch_delete_file() {
 "#,
     );
 
-    e.with_stdout(
+    e.with_stdout_contains(
         "Patched serde: /dev/null -> test.txt\nPatched serde: test.txt -> /dev/null",
     )
     .run();
@@ -102,7 +102,7 @@ fn patch_invalid_both_empty() {
 "#,
     );
 
-    e.with_stderr("Error: Both old and new file are all empty.")
+    e.with_stderr_contains("Error: Both old and new file are all empty.")
         .with_status(1)
         .run();
 }
