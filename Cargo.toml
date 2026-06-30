@@ -16,8 +16,8 @@ cargo = "0.82"
 fs_extra = "1"
 patch = "0.7"
 semver = "1"
-toml = "0.8"
+toml = "0.9"
 
 [dev-dependencies]
-cargo-test-macro = "0.3"
-cargo-test-support = "0.3"
+cargo-test-macro = "0.4"
+cargo-test-support = "0.11"
